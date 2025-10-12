@@ -1,1 +1,3 @@
 /target
+*.anki2
+*.sqlite3
