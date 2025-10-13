@@ -1,19 +1,39 @@
 use anki_bible_stats::get_bible_stats;
 use anki_bible_stats::models::BookStats;
-use std::env;
+use clap::{Parser, Subcommand};
 use std::process;
 use tabled::{settings::Style, Table};
 
+#[derive(Parser)]
+#[command(name = "anki-bible-stats")]
+#[command(about = "Analyze Anki flashcard databases for Bible verse memorization progress", long_about = None)]
+#[command(version)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Show statistics for each Bible book
+    Books {
+        /// Path to the Anki database file
+        #[arg(value_name = "DATABASE_PATH")]
+        db_path: String,
+    },
+}
+
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let cli = Cli::parse();
 
-    if args.len() != 2 {
-        eprintln!("Usage: {} <path-to-anki-database>", args[0]);
-        eprintln!("Example: {} ~/.local/share/Anki2/User/collection.anki2", args[0]);
-        process::exit(1);
+    match cli.command {
+        Commands::Books { db_path } => {
+            run_books_command(&db_path);
+        }
     }
+}
 
-    let db_path = &args[1];
+fn run_books_command(db_path: &str) {
 
     match get_bible_stats(db_path) {
         Ok(stats) => {
