@@ -1,4 +1,4 @@
-use anki_bible_stats::get_bible_stats;
+use anki_bible_stats::{get_bible_stats, get_study_time_last_30_days, get_today_study_time};
 use anki_bible_stats::models::BookStats;
 use clap::{Parser, Subcommand};
 use std::process;
@@ -21,6 +21,18 @@ enum Commands {
         #[arg(value_name = "DATABASE_PATH")]
         db_path: String,
     },
+    /// Show study time for today
+    Today {
+        /// Path to the Anki database file
+        #[arg(value_name = "DATABASE_PATH")]
+        db_path: String,
+    },
+    /// Show study time for each of the last 30 days
+    Daily {
+        /// Path to the Anki database file
+        #[arg(value_name = "DATABASE_PATH")]
+        db_path: String,
+    },
 }
 
 fn main() {
@@ -29,6 +41,12 @@ fn main() {
     match cli.command {
         Commands::Books { db_path } => {
             run_books_command(&db_path);
+        }
+        Commands::Today { db_path } => {
+            run_today_command(&db_path);
+        }
+        Commands::Daily { db_path } => {
+            run_daily_command(&db_path);
         }
     }
 }
@@ -79,4 +97,49 @@ fn run_books_command(db_path: &str) {
 fn print_book_stats(book_stats: &[BookStats]) {
     let table = Table::new(book_stats).with(Style::rounded()).to_string();
     println!("{}", table);
+}
+
+fn run_today_command(db_path: &str) {
+    match get_today_study_time(db_path) {
+        Ok(minutes) => {
+            println!("\n=== TODAY'S STUDY TIME ===\n");
+            println!("Total: {:.2} minutes ({:.1} hours)", minutes, minutes / 60.0);
+        }
+        Err(e) => {
+            eprintln!("Error: {:#}", e);
+            process::exit(1);
+        }
+    }
+}
+
+fn run_daily_command(db_path: &str) {
+    match get_study_time_last_30_days(db_path) {
+        Ok(daily_stats) => {
+            println!("\n=== STUDY TIME - LAST 30 DAYS ===\n");
+
+            let total_minutes: f64 = daily_stats.iter().map(|d| d.minutes).sum();
+            let avg_minutes = total_minutes / daily_stats.len() as f64;
+
+            // Print each day
+            for day in &daily_stats {
+                let hours = day.minutes / 60.0;
+                if day.minutes > 0.0 {
+                    println!("{}: {:.2} min ({:.1} hrs)", day.date, day.minutes, hours);
+                } else {
+                    println!("{}: --- (no study)", day.date);
+                }
+            }
+
+            println!("\n--- SUMMARY ---");
+            println!("Total: {:.2} minutes ({:.1} hours)", total_minutes, total_minutes / 60.0);
+            println!("Average per day: {:.2} minutes ({:.1} hours)", avg_minutes, avg_minutes / 60.0);
+
+            let days_studied = daily_stats.iter().filter(|d| d.minutes > 0.0).count();
+            println!("Days studied: {} out of 30", days_studied);
+        }
+        Err(e) => {
+            eprintln!("Error: {:#}", e);
+            process::exit(1);
+        }
+    }
 }

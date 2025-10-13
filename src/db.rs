@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
+use chrono::{Datelike, Duration, Local, TimeZone};
+use chrono_tz::Tz;
 use rusqlite::Connection;
 
-use crate::models::BookStats;
+use crate::config::TIMEZONE;
+use crate::models::{BookStats, DailyStudyTime};
 
 // Anki queue type constants
 // See https://github.com/ankitects/anki/blob/76d3237139b3e73b98f5a5b4dfeeeea2f0554644/pylib/anki/consts.py#L22C1-L29
@@ -103,4 +106,160 @@ pub fn get_book_stats(
     )?;
 
     Ok(stats)
+}
+
+/// Gets a config value from the Anki database config table
+/// Values are stored as UTF-8 strings in blobs
+fn get_config_value(conn: &Connection, key: &str) -> Result<String> {
+    let blob: Vec<u8> = conn
+        .query_row("SELECT val FROM config WHERE key = ?1", [key], |row| {
+            row.get(0)
+        })
+        .context(format!("Failed to read config key '{}' from database", key))?;
+
+    // Convert blob to UTF-8 string
+    let s = String::from_utf8(blob)
+        .context(format!("Config value for '{}' is not valid UTF-8", key))?;
+
+    Ok(s)
+}
+
+/// Gets the rollover hour from the Anki database configuration
+pub fn get_rollover_hour(conn: &Connection) -> Result<i64> {
+    let s = get_config_value(conn, "rollover")?;
+
+    // Parse as integer
+    let hour = s
+        .parse::<i64>()
+        .context(format!("Failed to parse rollover value '{}' as integer", s))?;
+
+    Ok(hour)
+}
+
+/// Helper function to calculate the start of today in epoch milliseconds
+/// accounting for timezone and rollover hour
+fn get_today_start_ms(rollover_hour: i64) -> Result<i64> {
+    let tz: Tz = TIMEZONE
+        .parse()
+        .context("Failed to parse timezone from config")?;
+
+    let now = Local::now();
+    let now_in_tz = tz
+        .from_local_datetime(&now.naive_local())
+        .single()
+        .context("Failed to convert current time to configured timezone")?;
+
+    // Get start of today at midnight in the configured timezone
+    let today_midnight = tz
+        .with_ymd_and_hms(
+            now_in_tz.year(),
+            now_in_tz.month(),
+            now_in_tz.day(),
+            0,
+            0,
+            0,
+        )
+        .single()
+        .context("Failed to create today's midnight")?;
+
+    // Add rollover hours
+    let today_start = today_midnight + Duration::hours(rollover_hour);
+
+    // Convert to epoch milliseconds
+    Ok(today_start.timestamp_millis())
+}
+
+/// Helper function to calculate day boundaries for a specific day offset
+fn get_day_boundaries(day_offset: i32, rollover_hour: i64) -> Result<(i64, i64, String)> {
+    let tz: Tz = TIMEZONE
+        .parse()
+        .context("Failed to parse timezone from config")?;
+
+    let now = Local::now();
+    let now_in_tz = tz
+        .from_local_datetime(&now.naive_local())
+        .single()
+        .context("Failed to convert current time to configured timezone")?;
+
+    // Calculate the target date (today - day_offset)
+    let target_date = now_in_tz - Duration::days(day_offset as i64);
+
+    // Get start of that day at midnight
+    let day_midnight = tz
+        .with_ymd_and_hms(
+            target_date.year(),
+            target_date.month(),
+            target_date.day(),
+            0,
+            0,
+            0,
+        )
+        .single()
+        .context("Failed to create target day's midnight")?;
+
+    // Add rollover hours for day start
+    let day_start = day_midnight + Duration::hours(rollover_hour);
+
+    // Next day start
+    let next_day_start = day_start + Duration::days(1);
+
+    // Format date for output
+    let date_str = target_date.format("%Y-%m-%d").to_string();
+
+    Ok((
+        day_start.timestamp_millis(),
+        next_day_start.timestamp_millis(),
+        date_str,
+    ))
+}
+
+/// Gets the total study time for today in minutes
+pub fn get_today_study_minutes(conn: &Connection) -> Result<f64> {
+    let rollover_hour = get_rollover_hour(conn)?;
+    let today_start_ms = get_today_start_ms(rollover_hour)?;
+
+    let deck_id = get_deck_id(conn)?;
+
+    let query = r#"
+        SELECT COALESCE(SUM(r.time), 0) as total_ms
+        FROM revlog r
+        JOIN cards c ON c.id = r.cid
+        WHERE c.did = ?1 AND r.id >= ?2
+    "#;
+
+    let total_ms: i64 = conn.query_row(query, [deck_id, today_start_ms], |row| row.get(0))?;
+
+    // Convert milliseconds to minutes
+    Ok(total_ms as f64 / 60000.0)
+}
+
+/// Gets study time for each of the last 30 days in minutes
+pub fn get_last_30_days_study_minutes(conn: &Connection) -> Result<Vec<DailyStudyTime>> {
+    let rollover_hour = get_rollover_hour(conn)?;
+    let deck_id = get_deck_id(conn)?;
+
+    let mut results = Vec::new();
+
+    // Query each day individually
+    for day_offset in 0..30 {
+        let (day_start_ms, day_end_ms, date_str) = get_day_boundaries(day_offset, rollover_hour)?;
+
+        let query = r#"
+            SELECT COALESCE(SUM(r.time), 0) as total_ms
+            FROM revlog r
+            JOIN cards c ON c.id = r.cid
+            WHERE c.did = ?1 AND r.id >= ?2 AND r.id < ?3
+        "#;
+
+        let total_ms: i64 =
+            conn.query_row(query, [deck_id, day_start_ms, day_end_ms], |row| row.get(0))?;
+
+        let minutes = total_ms as f64 / 60000.0;
+        results.push(DailyStudyTime::new(date_str, minutes));
+    }
+
+    // Reverse so most recent day is last
+    results.reverse();
+
+    Ok(results)
 }

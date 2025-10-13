@@ -112,3 +112,16 @@ impl Default for BibleStats {
         Self::new()
     }
 }
+
+/// Study time statistics for a single day
+#[derive(Debug, Clone)]
+pub struct DailyStudyTime {
+    pub date: String,
+    pub minutes: f64,
+}
+
+impl DailyStudyTime {
+    pub fn new(date: String, minutes: f64) -> Self {
+        Self { date, minutes }
+    }
+}
