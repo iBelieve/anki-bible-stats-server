@@ -1,0 +1,33 @@
+# Build artifacts
+target/
+**/*.rs.bk
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (not needed in image)
+*.md
+!CLAUDE.md
+
+# CI/CD
+.github/
+
+# Local env files (don't copy secrets)
+.env
+.env.local
+*.local
