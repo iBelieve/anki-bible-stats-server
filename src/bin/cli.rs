@@ -1,8 +1,8 @@
-use anki_bible_stats::{get_bible_stats, get_study_time_last_30_days, get_today_study_time};
 use anki_bible_stats::models::BookStats;
+use anki_bible_stats::{get_bible_stats, get_study_time_last_30_days, get_today_study_time};
 use clap::{Parser, Subcommand};
 use std::process;
-use tabled::{settings::Style, Table};
+use tabled::{Table, settings::Style};
 
 #[derive(Parser)]
 #[command(name = "anki-bible-stats")]
@@ -52,7 +52,6 @@ fn main() {
 }
 
 fn run_books_command(db_path: &str) {
-
     match get_bible_stats(db_path) {
         Ok(stats) => {
             println!("\n=== OLD TESTAMENT ===\n");
@@ -103,7 +102,11 @@ fn run_today_command(db_path: &str) {
     match get_today_study_time(db_path) {
         Ok(minutes) => {
             println!("\n=== TODAY'S STUDY TIME ===\n");
-            println!("Total: {:.2} minutes ({:.1} hours)", minutes, minutes / 60.0);
+            println!(
+                "Total: {:.2} minutes ({:.1} hours)",
+                minutes,
+                minutes / 60.0
+            );
         }
         Err(e) => {
             eprintln!("Error: {:#}", e);
@@ -131,8 +134,16 @@ fn run_daily_command(db_path: &str) {
             }
 
             println!("\n--- SUMMARY ---");
-            println!("Total: {:.2} minutes ({:.1} hours)", total_minutes, total_minutes / 60.0);
-            println!("Average per day: {:.2} minutes ({:.1} hours)", avg_minutes, avg_minutes / 60.0);
+            println!(
+                "Total: {:.2} minutes ({:.1} hours)",
+                total_minutes,
+                total_minutes / 60.0
+            );
+            println!(
+                "Average per day: {:.2} minutes ({:.1} hours)",
+                avg_minutes,
+                avg_minutes / 60.0
+            );
 
             let days_studied = daily_stats.iter().filter(|d| d.minutes > 0.0).count();
             println!("Days studied: {} out of 30", days_studied);
