@@ -3,6 +3,10 @@ name = "anki-bible-stats"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "cli"
+path = "src/bin/cli.rs"
+
 [dependencies]
 rusqlite = { version = "0.32", features = ["bundled"] }
 anyhow = "1.0"
@@ -10,3 +14,9 @@ tabled = "0.16"
 chrono = "0.4"
 chrono-tz = "0.10"
 clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+axum = "0.8"
+tokio = { version = "1.42", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }

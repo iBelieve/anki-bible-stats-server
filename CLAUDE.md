@@ -4,24 +4,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Rust CLI tool that analyzes Anki flashcard databases to generate statistics about Bible verse memorization progress. It queries an Anki SQLite database to count cards by status (mature, young, unseen, suspended) for each Bible book, separated into Old Testament and New Testament.
+This is a Rust project that analyzes Anki flashcard databases to generate statistics about Bible verse memorization progress. It queries an Anki SQLite database to count cards by status (mature, young, unseen, suspended) for each Bible book, separated into Old Testament and New Testament.
+
+The project includes two binaries:
+- **Web API Server**: REST API built with Axum that exposes Bible statistics endpoints
+- **CLI Tool**: Command-line interface for analyzing statistics locally
 
 ## Development Commands
 
 ### Build and Run
+
+#### Web API Server (main binary)
 ```bash
-# Build the project
-cargo build
+# Set required environment variables
+export ANKI_DATABASE_PATH="/path/to/collection.anki2"
+export API_KEY="your-secure-api-key-here"
 
-# Run with release optimizations
+# Run the server in development (default binary)
+cargo run
+
+# Build and run release version
 cargo build --release
+./target/release/anki-bible-stats
 
-# Run the tool (requires path to Anki database)
-cargo run -- <path-to-anki-database>
-# Example: cargo run -- ~/.local/share/Anki2/User/collection.anki2
+# The server will start on http://0.0.0.0:3000
+```
 
-# Run release build directly
-./target/release/anki-bible-stats <path-to-anki-database>
+#### CLI Tool
+```bash
+# Run the CLI with a specific command
+cargo run --bin cli -- books /path/to/collection.anki2
+cargo run --bin cli -- today /path/to/collection.anki2
+cargo run --bin cli -- daily /path/to/collection.anki2
+
+# Build and run release version
+cargo build --release --bin cli
+./target/release/cli books ~/.local/share/Anki2/User/collection.anki2
 ```
 
 ### Testing
@@ -51,17 +69,87 @@ cargo fmt
 cargo fmt -- --check
 ```
 
+## API Endpoints
+
+The web API server exposes the following REST endpoints:
+
+### `GET /health`
+Health check endpoint (no authentication required)
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "service": "anki-bible-stats"
+}
+```
+
+### `GET /api/stats/books`
+Get Bible book statistics for Old and New Testament
+
+**Authentication:** Required (Bearer token)
+
+**Response:** Returns a `BibleStats` object with detailed counts per book and testament aggregates
+
+### `GET /api/stats/today`
+Get today's study time
+
+**Authentication:** Required (Bearer token)
+
+**Response:**
+```json
+{
+  "minutes": 45.5,
+  "hours": 0.758
+}
+```
+
+### `GET /api/stats/daily`
+Get study time for each of the last 30 days
+
+**Authentication:** Required (Bearer token)
+
+**Response:**
+```json
+{
+  "daily": [
+    {"date": "2025-09-14", "minutes": 30.2},
+    {"date": "2025-09-15", "minutes": 45.8}
+  ],
+  "summary": {
+    "total_minutes": 720.5,
+    "total_hours": 12.0,
+    "average_minutes_per_day": 24.0,
+    "average_hours_per_day": 0.4,
+    "days_studied": 22,
+    "total_days": 30
+  }
+}
+```
+
+### Authentication
+
+All API endpoints (except `/health`) require authentication via Bearer token:
+
+```bash
+curl -H "Authorization: Bearer your-api-key-here" http://localhost:3000/api/stats/today
+```
+
+The API key must match the `API_KEY` environment variable set when running the server.
+
 ## Architecture
 
 ### Module Structure
 
-The codebase is organized into four main modules:
+The codebase is organized into the following structure:
 
-- **`main.rs`**: CLI entry point that parses arguments, calls `get_bible_stats()`, and formats output as tables
-- **`lib.rs`**: Public API exposing `get_bible_stats()` which orchestrates the entire statistics gathering process
-- **`models.rs`**: Data structures for statistics (`BookStats`, `AggregateStats`, `BibleStats`)
-- **`db.rs`**: All database interaction logic with Anki's SQLite schema
-- **`bible.rs`**: Canonical lists of Bible books (`OLD_TESTAMENT` and `NEW_TESTAMENT` constants)
+- **`src/main.rs`**: Axum web server (main binary) with REST API endpoints and authentication middleware
+- **`src/bin/cli.rs`**: CLI helper utility that parses arguments and formats output as tables
+- **`src/lib.rs`**: Public API exposing functions like `get_bible_stats()` used by both binaries
+- **`src/models.rs`**: Data structures with both `Serialize` (for JSON) and `Tabled` (for CLI) support
+- **`src/db.rs`**: All database interaction logic with Anki's SQLite schema
+- **`src/bible.rs`**: Canonical lists of Bible books (`OLD_TESTAMENT` and `NEW_TESTAMENT` constants)
+- **`src/config.rs`**: Configuration constants like timezone settings
 
 ### Database Query Logic
 
@@ -80,12 +168,21 @@ Queue type constants are based on Anki's internal schema (see link in `db.rs:7`)
 
 ### Data Flow
 
-1. `main.rs` validates CLI args and calls `get_bible_stats()`
-2. `lib.rs:get_bible_stats()` opens database and retrieves deck/model IDs
-3. For each book in `OLD_TESTAMENT` and `NEW_TESTAMENT`, calls `db::get_book_stats()`
-4. `db::get_book_stats()` runs SQL query with card status aggregation
-5. Results are accumulated into `BibleStats` with `AggregateStats` for each testament
-6. `main.rs` formats and prints tables using the `tabled` crate
+#### Web API Flow
+1. Client makes authenticated request to API endpoint (e.g., `/api/stats/books`)
+2. Axum middleware validates Bearer token against `API_KEY` environment variable
+3. Handler function calls library function (e.g., `get_bible_stats()`) with database path from `ANKI_DATABASE_PATH`
+4. Library function queries Anki database and returns structured data
+5. Handler serializes result to JSON and returns HTTP response
+
+#### CLI Flow
+1. `src/bin/cli.rs` parses command-line arguments using clap
+2. Based on subcommand, calls appropriate library function (e.g., `get_bible_stats()`)
+3. Library function opens database and retrieves deck/model IDs
+4. For each book in `OLD_TESTAMENT` and `NEW_TESTAMENT`, calls `db::get_book_stats()`
+5. `db::get_book_stats()` runs SQL query with card status aggregation
+6. Results are accumulated into `BibleStats` with `AggregateStats` for each testament
+7. CLI formats and prints tables using the `tabled` crate
 
 ### Key Implementation Details
 
@@ -96,6 +193,26 @@ Queue type constants are based on Anki's internal schema (see link in `db.rs:7`)
 
 ## Dependencies
 
+### Core Dependencies
 - **rusqlite**: SQLite database access with bundled SQLite
 - **anyhow**: Error handling with context
+- **chrono** / **chrono-tz**: Timezone-aware date/time handling for study time calculations
+
+### Web API Dependencies
+- **axum**: Web framework for REST API
+- **tokio**: Async runtime
+- **tower** / **tower-http**: Middleware support (CORS, etc.)
+- **serde** / **serde_json**: JSON serialization
+
+### CLI Dependencies
+- **clap**: Command-line argument parsing with derive macros
 - **tabled**: Table formatting for terminal output
+
+## Environment Variables
+
+### Web API Server
+- **`ANKI_DATABASE_PATH`** (required): Full path to the Anki collection database file
+- **`API_KEY`** (required): Secret key for API authentication via Bearer token
+
+### CLI Tool
+No environment variables required. Database path is passed as a command-line argument.

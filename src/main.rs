@@ -1,145 +1,158 @@
 use anki_bible_stats::{get_bible_stats, get_study_time_last_30_days, get_today_study_time};
-use anki_bible_stats::models::BookStats;
-use clap::{Parser, Subcommand};
-use std::process;
-use tabled::{settings::Style, Table};
+use axum::{
+    Router,
+    extract::Request,
+    http::StatusCode,
+    middleware::{self, Next},
+    response::{IntoResponse, Json, Response},
+    routing::get,
+};
+use serde_json::json;
+use std::env;
+use tower_http::cors::CorsLayer;
 
-#[derive(Parser)]
-#[command(name = "anki-bible-stats")]
-#[command(about = "Analyze Anki flashcard databases for Bible verse memorization progress", long_about = None)]
-#[command(version)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
+#[tokio::main]
+async fn main() {
+    // Get configuration from environment variables
+    let db_path = env::var("ANKI_DATABASE_PATH").unwrap_or_else(|_| {
+        eprintln!("Error: ANKI_DATABASE_PATH environment variable is required");
+        std::process::exit(1);
+    });
+
+    let api_key = env::var("API_KEY").unwrap_or_else(|_| {
+        eprintln!("Error: API_KEY environment variable is required");
+        std::process::exit(1);
+    });
+
+    // Validate that the database path exists
+    if !std::path::Path::new(&db_path).exists() {
+        eprintln!("Error: Database file not found at: {}", db_path);
+        std::process::exit(1);
+    }
+
+    println!("Starting anki-bible-stats API server...");
+    println!("Database: {}", db_path);
+
+    // Build the router with routes
+    let app = Router::new()
+        .route("/health", get(health_check))
+        .route("/api/stats/books", get(get_books_stats))
+        .route("/api/stats/today", get(get_today_stats))
+        .route("/api/stats/daily", get(get_daily_stats))
+        .layer(middleware::from_fn(move |req, next| {
+            auth_middleware(req, next, api_key.clone())
+        }))
+        .layer(CorsLayer::permissive())
+        .with_state(db_path);
+
+    // Start the server
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+        .await
+        .expect("Failed to bind to port 3000");
+
+    println!("Server listening on http://0.0.0.0:3000");
+
+    axum::serve(listener, app)
+        .await
+        .expect("Server failed to start");
 }
 
-#[derive(Subcommand)]
-enum Commands {
-    /// Show statistics for each Bible book
-    Books {
-        /// Path to the Anki database file
-        #[arg(value_name = "DATABASE_PATH")]
-        db_path: String,
-    },
-    /// Show study time for today
-    Today {
-        /// Path to the Anki database file
-        #[arg(value_name = "DATABASE_PATH")]
-        db_path: String,
-    },
-    /// Show study time for each of the last 30 days
-    Daily {
-        /// Path to the Anki database file
-        #[arg(value_name = "DATABASE_PATH")]
-        db_path: String,
-    },
+/// Authentication middleware that validates the API key
+async fn auth_middleware(
+    req: Request,
+    next: Next,
+    expected_api_key: String,
+) -> Result<Response, StatusCode> {
+    // Skip auth for health check endpoint
+    if req.uri().path() == "/health" {
+        return Ok(next.run(req).await);
+    }
+
+    let headers = req.headers();
+    let auth_header = headers
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("");
+
+    if let Some(token) = auth_header.strip_prefix("Bearer ")
+        && token == expected_api_key
+    {
+        return Ok(next.run(req).await);
+    }
+
+    Err(StatusCode::UNAUTHORIZED)
 }
 
-fn main() {
-    let cli = Cli::parse();
+/// Health check endpoint
+async fn health_check() -> impl IntoResponse {
+    Json(json!({
+        "status": "ok",
+        "service": "anki-bible-stats"
+    }))
+}
 
-    match cli.command {
-        Commands::Books { db_path } => {
-            run_books_command(&db_path);
+/// Get Bible book statistics
+async fn get_books_stats(
+    axum::extract::State(db_path): axum::extract::State<String>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let stats = get_bible_stats(&db_path)?;
+    Ok(Json(json!(stats)))
+}
+
+/// Get today's study time
+async fn get_today_stats(
+    axum::extract::State(db_path): axum::extract::State<String>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let minutes = get_today_study_time(&db_path)?;
+    Ok(Json(json!({
+        "minutes": minutes,
+        "hours": minutes / 60.0
+    })))
+}
+
+/// Get daily study time for last 30 days
+async fn get_daily_stats(
+    axum::extract::State(db_path): axum::extract::State<String>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let daily_stats = get_study_time_last_30_days(&db_path)?;
+
+    let total_minutes: f64 = daily_stats.iter().map(|d| d.minutes).sum();
+    let avg_minutes = total_minutes / daily_stats.len() as f64;
+    let days_studied = daily_stats.iter().filter(|d| d.minutes > 0.0).count();
+
+    Ok(Json(json!({
+        "daily": daily_stats,
+        "summary": {
+            "total_minutes": total_minutes,
+            "total_hours": total_minutes / 60.0,
+            "average_minutes_per_day": avg_minutes,
+            "average_hours_per_day": avg_minutes / 60.0,
+            "days_studied": days_studied,
+            "total_days": daily_stats.len()
         }
-        Commands::Today { db_path } => {
-            run_today_command(&db_path);
-        }
-        Commands::Daily { db_path } => {
-            run_daily_command(&db_path);
-        }
+    })))
+}
+
+/// Custom error type for API errors
+struct AppError(anyhow::Error);
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": format!("{:#}", self.0)
+            })),
+        )
+            .into_response()
     }
 }
 
-fn run_books_command(db_path: &str) {
-
-    match get_bible_stats(db_path) {
-        Ok(stats) => {
-            println!("\n=== OLD TESTAMENT ===\n");
-            print_book_stats(&stats.old_testament.book_stats);
-            println!(
-                "\nOT Totals: Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
-                stats.old_testament.mature_count,
-                stats.old_testament.young_count,
-                stats.old_testament.unseen_count,
-                stats.old_testament.suspended_count,
-                stats.old_testament.total_cards()
-            );
-
-            println!("\n\n=== NEW TESTAMENT ===\n");
-            print_book_stats(&stats.new_testament.book_stats);
-            println!(
-                "\nNT Totals: Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
-                stats.new_testament.mature_count,
-                stats.new_testament.young_count,
-                stats.new_testament.unseen_count,
-                stats.new_testament.suspended_count,
-                stats.new_testament.total_cards()
-            );
-
-            println!("\n\n=== GRAND TOTAL ===");
-            println!(
-                "Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
-                stats.total_mature(),
-                stats.total_young(),
-                stats.total_unseen(),
-                stats.total_suspended(),
-                stats.total_cards()
-            );
-        }
-        Err(e) => {
-            eprintln!("Error: {:#}", e);
-            process::exit(1);
-        }
-    }
-}
-
-fn print_book_stats(book_stats: &[BookStats]) {
-    let table = Table::new(book_stats).with(Style::rounded()).to_string();
-    println!("{}", table);
-}
-
-fn run_today_command(db_path: &str) {
-    match get_today_study_time(db_path) {
-        Ok(minutes) => {
-            println!("\n=== TODAY'S STUDY TIME ===\n");
-            println!("Total: {:.2} minutes ({:.1} hours)", minutes, minutes / 60.0);
-        }
-        Err(e) => {
-            eprintln!("Error: {:#}", e);
-            process::exit(1);
-        }
-    }
-}
-
-fn run_daily_command(db_path: &str) {
-    match get_study_time_last_30_days(db_path) {
-        Ok(daily_stats) => {
-            println!("\n=== STUDY TIME - LAST 30 DAYS ===\n");
-
-            let total_minutes: f64 = daily_stats.iter().map(|d| d.minutes).sum();
-            let avg_minutes = total_minutes / daily_stats.len() as f64;
-
-            // Print each day
-            for day in &daily_stats {
-                let hours = day.minutes / 60.0;
-                if day.minutes > 0.0 {
-                    println!("{}: {:.2} min ({:.1} hrs)", day.date, day.minutes, hours);
-                } else {
-                    println!("{}: --- (no study)", day.date);
-                }
-            }
-
-            println!("\n--- SUMMARY ---");
-            println!("Total: {:.2} minutes ({:.1} hours)", total_minutes, total_minutes / 60.0);
-            println!("Average per day: {:.2} minutes ({:.1} hours)", avg_minutes, avg_minutes / 60.0);
-
-            let days_studied = daily_stats.iter().filter(|d| d.minutes > 0.0).count();
-            println!("Days studied: {} out of 30", days_studied);
-        }
-        Err(e) => {
-            eprintln!("Error: {:#}", e);
-            process::exit(1);
-        }
+impl<E> From<E> for AppError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
     }
 }

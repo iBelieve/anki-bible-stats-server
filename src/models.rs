@@ -1,7 +1,8 @@
+use serde::Serialize;
 use tabled::Tabled;
 
 /// Statistics for a single Bible book
-#[derive(Debug, Clone, Tabled)]
+#[derive(Debug, Clone, Serialize, Tabled)]
 pub struct BookStats {
     #[tabled(rename = "Book")]
     pub book: String,
@@ -36,7 +37,7 @@ impl BookStats {
 }
 
 /// Aggregated statistics for a collection of books
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AggregateStats {
     pub label: String,
     pub mature_count: i64,
@@ -72,7 +73,7 @@ impl AggregateStats {
 }
 
 /// Complete Bible statistics report
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct BibleStats {
     pub old_testament: AggregateStats,
     pub new_testament: AggregateStats,
@@ -114,7 +115,7 @@ impl Default for BibleStats {
 }
 
 /// Study time statistics for a single day
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DailyStudyTime {
     pub date: String,
     pub minutes: f64,
