@@ -89,40 +89,20 @@ pub fn get_book_stats(
     let query = format!(
         r#"
         SELECT
-            SUM(CASE WHEN queue IN ({},{},{}) AND ivl >= 21 THEN 1 ELSE 0 END) as mature_passages,
-            SUM(CASE WHEN queue IN ({},{}) OR
-                              (queue IN ({},{},{}) AND ivl < 21) THEN 1 ELSE 0 END) as young_passages,
-            SUM(CASE WHEN queue={} THEN 1 ELSE 0 END) as unseen_passages,
-            SUM(CASE WHEN queue<{} THEN 1 ELSE 0 END) as suspended_passages,
-            SUM(CASE WHEN queue IN ({},{},{}) AND ivl >= 21 THEN count_verses(sfld) ELSE 0 END) as mature_verses,
-            SUM(CASE WHEN queue IN ({},{}) OR
-                              (queue IN ({},{},{}) AND ivl < 21) THEN count_verses(sfld) ELSE 0 END) as young_verses,
-            SUM(CASE WHEN queue={} THEN count_verses(sfld) ELSE 0 END) as unseen_verses,
-            SUM(CASE WHEN queue<{} THEN count_verses(sfld) ELSE 0 END) as suspended_verses
+            SUM(CASE WHEN queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl >= 21 THEN 1 ELSE 0 END) as mature_passages,
+            SUM(CASE WHEN queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR
+                              (queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl < 21) THEN 1 ELSE 0 END) as young_passages,
+            SUM(CASE WHEN queue={QUEUE_TYPE_NEW} THEN 1 ELSE 0 END) as unseen_passages,
+            SUM(CASE WHEN queue<{QUEUE_TYPE_NEW} THEN 1 ELSE 0 END) as suspended_passages,
+            SUM(CASE WHEN queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl >= 21 THEN count_verses(sfld) ELSE 0 END) as mature_verses,
+            SUM(CASE WHEN queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR
+                              (queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl < 21) THEN count_verses(sfld) ELSE 0 END) as young_verses,
+            SUM(CASE WHEN queue={QUEUE_TYPE_NEW} THEN count_verses(sfld) ELSE 0 END) as unseen_verses,
+            SUM(CASE WHEN queue<{QUEUE_TYPE_NEW} THEN count_verses(sfld) ELSE 0 END) as suspended_verses
         FROM cards
         JOIN notes ON notes.id = cards.nid
         WHERE ord = 0 AND mid = ?1 AND did = ?2 AND sfld LIKE ?3
-        "#,
-        QUEUE_TYPE_REV,
-        QUEUE_TYPE_SIBLING_BURIED,
-        QUEUE_TYPE_MANUALLY_BURIED,
-        QUEUE_TYPE_LRN,
-        QUEUE_TYPE_DAY_LEARN_RELEARN,
-        QUEUE_TYPE_REV,
-        QUEUE_TYPE_SIBLING_BURIED,
-        QUEUE_TYPE_MANUALLY_BURIED,
-        QUEUE_TYPE_NEW,
-        QUEUE_TYPE_NEW,
-        QUEUE_TYPE_REV,
-        QUEUE_TYPE_SIBLING_BURIED,
-        QUEUE_TYPE_MANUALLY_BURIED,
-        QUEUE_TYPE_LRN,
-        QUEUE_TYPE_DAY_LEARN_RELEARN,
-        QUEUE_TYPE_REV,
-        QUEUE_TYPE_SIBLING_BURIED,
-        QUEUE_TYPE_MANUALLY_BURIED,
-        QUEUE_TYPE_NEW,
-        QUEUE_TYPE_NEW
+        "#
     );
 
     let mut stmt = conn.prepare(&query)?;
