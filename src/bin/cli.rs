@@ -1,4 +1,4 @@
-use anki_bible_stats::models::BookStats;
+use anki_bible_stats::models::{BookStats, BookStatsDisplay};
 use anki_bible_stats::{get_bible_stats, get_study_time_last_30_days, get_today_study_time};
 use clap::{Parser, Subcommand};
 use std::process;
@@ -57,33 +57,57 @@ fn run_books_command(db_path: &str) {
             println!("\n=== OLD TESTAMENT ===\n");
             print_book_stats(&stats.old_testament.book_stats);
             println!(
-                "\nOT Totals: Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
-                stats.old_testament.mature_count,
-                stats.old_testament.young_count,
-                stats.old_testament.unseen_count,
-                stats.old_testament.suspended_count,
-                stats.old_testament.total_cards()
+                "\nOT Passages: Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
+                stats.old_testament.mature_passages,
+                stats.old_testament.young_passages,
+                stats.old_testament.unseen_passages,
+                stats.old_testament.suspended_passages,
+                stats.old_testament.total_passages()
+            );
+            println!(
+                "OT Verses:   Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
+                stats.old_testament.mature_verses,
+                stats.old_testament.young_verses,
+                stats.old_testament.unseen_verses,
+                stats.old_testament.suspended_verses,
+                stats.old_testament.total_verses()
             );
 
             println!("\n\n=== NEW TESTAMENT ===\n");
             print_book_stats(&stats.new_testament.book_stats);
             println!(
-                "\nNT Totals: Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
-                stats.new_testament.mature_count,
-                stats.new_testament.young_count,
-                stats.new_testament.unseen_count,
-                stats.new_testament.suspended_count,
-                stats.new_testament.total_cards()
+                "\nNT Passages: Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
+                stats.new_testament.mature_passages,
+                stats.new_testament.young_passages,
+                stats.new_testament.unseen_passages,
+                stats.new_testament.suspended_passages,
+                stats.new_testament.total_passages()
+            );
+            println!(
+                "NT Verses:   Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
+                stats.new_testament.mature_verses,
+                stats.new_testament.young_verses,
+                stats.new_testament.unseen_verses,
+                stats.new_testament.suspended_verses,
+                stats.new_testament.total_verses()
             );
 
             println!("\n\n=== GRAND TOTAL ===");
             println!(
-                "Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
-                stats.total_mature(),
-                stats.total_young(),
-                stats.total_unseen(),
-                stats.total_suspended(),
-                stats.total_cards()
+                "Passages: Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
+                stats.total_mature_passages(),
+                stats.total_young_passages(),
+                stats.total_unseen_passages(),
+                stats.total_suspended_passages(),
+                stats.total_passages()
+            );
+            println!(
+                "Verses:   Mature={}, Young={}, Unseen={}, Suspended={}, Total={}",
+                stats.total_mature_verses(),
+                stats.total_young_verses(),
+                stats.total_unseen_verses(),
+                stats.total_suspended_verses(),
+                stats.total_verses()
             );
         }
         Err(e) => {
@@ -94,8 +118,10 @@ fn run_books_command(db_path: &str) {
 }
 
 fn print_book_stats(book_stats: &[BookStats]) {
-    let table = Table::new(book_stats).with(Style::rounded()).to_string();
+    let display_stats: Vec<BookStatsDisplay> = book_stats.iter().map(|s| s.into()).collect();
+    let table = Table::new(display_stats).with(Style::rounded()).to_string();
     println!("{}", table);
+    println!("\n(Format: Passages / Verses)");
 }
 
 fn run_today_command(db_path: &str) {

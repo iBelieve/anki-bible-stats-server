@@ -2,6 +2,7 @@ pub mod bible;
 pub mod config;
 pub mod db;
 pub mod models;
+pub mod verse_parser;
 
 use anyhow::Result;
 

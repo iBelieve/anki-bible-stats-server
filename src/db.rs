@@ -5,6 +5,7 @@ use rusqlite::{Connection, OpenFlags};
 
 use crate::config::TIMEZONE;
 use crate::models::{BookStats, DailyStudyTime};
+use crate::verse_parser;
 
 // Anki queue type constants
 // See https://github.com/ankitects/anki/blob/76d3237139b3e73b98f5a5b4dfeeeea2f0554644/pylib/anki/consts.py#L22C1-L29
@@ -24,11 +25,26 @@ const UNIT_SEPARATOR: char = '\x1F';
 
 /// Opens a connection to an Anki database in read-only mode
 pub fn open_database(path: &str) -> Result<Connection> {
-    Connection::open_with_flags(
+    let conn = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
-    .context("Failed to open Anki database in read-only mode")
+    .context("Failed to open Anki database in read-only mode")?;
+
+    // Register custom SQLite function for counting verses in a reference
+    conn.create_scalar_function(
+        "count_verses",
+        1, // number of arguments
+        rusqlite::functions::FunctionFlags::SQLITE_UTF8
+            | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            let reference = ctx.get::<String>(0)?;
+            Ok(verse_parser::count_verses_in_reference(&reference))
+        },
+    )
+    .context("Failed to register count_verses SQLite function")?;
+
+    Ok(conn)
 }
 
 /// Looks up the deck ID for "Bible<unit-separator>Verses"
@@ -73,15 +89,30 @@ pub fn get_book_stats(
     let query = format!(
         r#"
         SELECT
-            SUM(CASE WHEN queue IN ({},{},{}) AND ivl >= 21 THEN 1 ELSE 0 END) as mature_count,
+            SUM(CASE WHEN queue IN ({},{},{}) AND ivl >= 21 THEN 1 ELSE 0 END) as mature_passages,
             SUM(CASE WHEN queue IN ({},{}) OR
-                              (queue IN ({},{},{}) AND ivl < 21) THEN 1 ELSE 0 END) as young_count,
-            SUM(CASE WHEN queue={} THEN 1 ELSE 0 END) as unseen_count,
-            SUM(CASE WHEN queue<{} THEN 1 ELSE 0 END) as suspended_count
+                              (queue IN ({},{},{}) AND ivl < 21) THEN 1 ELSE 0 END) as young_passages,
+            SUM(CASE WHEN queue={} THEN 1 ELSE 0 END) as unseen_passages,
+            SUM(CASE WHEN queue<{} THEN 1 ELSE 0 END) as suspended_passages,
+            SUM(CASE WHEN queue IN ({},{},{}) AND ivl >= 21 THEN count_verses(sfld) ELSE 0 END) as mature_verses,
+            SUM(CASE WHEN queue IN ({},{}) OR
+                              (queue IN ({},{},{}) AND ivl < 21) THEN count_verses(sfld) ELSE 0 END) as young_verses,
+            SUM(CASE WHEN queue={} THEN count_verses(sfld) ELSE 0 END) as unseen_verses,
+            SUM(CASE WHEN queue<{} THEN count_verses(sfld) ELSE 0 END) as suspended_verses
         FROM cards
         JOIN notes ON notes.id = cards.nid
         WHERE ord = 0 AND mid = ?1 AND did = ?2 AND sfld LIKE ?3
         "#,
+        QUEUE_TYPE_REV,
+        QUEUE_TYPE_SIBLING_BURIED,
+        QUEUE_TYPE_MANUALLY_BURIED,
+        QUEUE_TYPE_LRN,
+        QUEUE_TYPE_DAY_LEARN_RELEARN,
+        QUEUE_TYPE_REV,
+        QUEUE_TYPE_SIBLING_BURIED,
+        QUEUE_TYPE_MANUALLY_BURIED,
+        QUEUE_TYPE_NEW,
+        QUEUE_TYPE_NEW,
         QUEUE_TYPE_REV,
         QUEUE_TYPE_SIBLING_BURIED,
         QUEUE_TYPE_MANUALLY_BURIED,
@@ -99,13 +130,17 @@ pub fn get_book_stats(
     let stats = stmt.query_row(
         rusqlite::params![model_id, deck_id, search_pattern],
         |row| {
-            Ok(BookStats::new(
-                book_name.to_string(),
-                row.get(0).unwrap_or(0),
-                row.get(1).unwrap_or(0),
-                row.get(2).unwrap_or(0),
-                row.get(3).unwrap_or(0),
-            ))
+            Ok(BookStats {
+                book: book_name.to_string(),
+                mature_passages: row.get(0).unwrap_or(0),
+                young_passages: row.get(1).unwrap_or(0),
+                unseen_passages: row.get(2).unwrap_or(0),
+                suspended_passages: row.get(3).unwrap_or(0),
+                mature_verses: row.get(4).unwrap_or(0),
+                young_verses: row.get(5).unwrap_or(0),
+                unseen_verses: row.get(6).unwrap_or(0),
+                suspended_verses: row.get(7).unwrap_or(0),
+            })
         },
     )?;
 
