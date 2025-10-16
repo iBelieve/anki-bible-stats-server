@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use chrono::{Datelike, Duration, Local, TimeZone};
 use chrono_tz::Tz;
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 
 use crate::config::TIMEZONE;
 use crate::models::{BookStats, DailyStudyTime};
@@ -22,9 +22,13 @@ const QUEUE_TYPE_PREVIEW: i64 = 4;
 /// Unicode unit separator character (used in Anki deck names)
 const UNIT_SEPARATOR: char = '\x1F';
 
-/// Opens a connection to an Anki database
+/// Opens a connection to an Anki database in read-only mode
 pub fn open_database(path: &str) -> Result<Connection> {
-    Connection::open(path).context("Failed to open Anki database")
+    Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .context("Failed to open Anki database in read-only mode")
 }
 
 /// Looks up the deck ID for "Bible<unit-separator>Verses"
