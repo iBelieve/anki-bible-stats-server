@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::book_name_parser;
 use crate::config::TIMEZONE;
-use crate::models::{BookStats, DailyStudyTime};
+use crate::models::{BookStats, DayStats};
 use crate::verse_parser;
 
 // Anki queue type constants
@@ -275,18 +275,21 @@ pub fn get_today_study_minutes(conn: &Connection) -> Result<f64> {
     Ok(total_ms as f64 / 60000.0)
 }
 
-/// Gets study time for each of the last 30 days in minutes
-pub fn get_last_30_days_study_minutes(conn: &Connection) -> Result<Vec<DailyStudyTime>> {
+/// Gets study time and learning progress for each of the last 30 days
+pub fn get_last_30_days_stats(conn: &Connection) -> Result<Vec<DayStats>> {
     let rollover_hour = get_rollover_hour(conn)?;
     let deck_id = get_deck_id(conn)?;
+    let model_id = get_model_id(conn)?;
 
     let mut results = Vec::new();
+    let mut cumulative_passages = 0i64;
 
-    // Query each day individually
-    for day_offset in 0..30 {
+    // Query each day individually (from oldest to newest)
+    for day_offset in (0..30).rev() {
         let (day_start_ms, day_end_ms, date_str) = get_day_boundaries(day_offset, rollover_hour)?;
 
-        let query = r#"
+        // Query study time
+        let time_query = r#"
             SELECT COALESCE(SUM(r.time), 0) as total_ms
             FROM revlog r
             JOIN cards c ON c.id = r.cid
@@ -294,14 +297,44 @@ pub fn get_last_30_days_study_minutes(conn: &Connection) -> Result<Vec<DailyStud
         "#;
 
         let total_ms: i64 =
-            conn.query_row(query, [deck_id, day_start_ms, day_end_ms], |row| row.get(0))?;
+            conn.query_row(time_query, [deck_id, day_start_ms, day_end_ms], |row| {
+                row.get(0)
+            })?;
 
         let minutes = total_ms as f64 / 60000.0;
-        results.push(DailyStudyTime::new(date_str, minutes));
-    }
 
-    // Reverse so most recent day is last
-    results.reverse();
+        // Query progress (maturation and loss)
+        let progress_query = format!(
+            r#"
+            SELECT
+                COUNT(CASE WHEN r.lastIvl < 21 AND r.ivl >= 21 THEN 1 END) as matured,
+                COUNT(CASE WHEN r.lastIvl >= 21 AND r.ivl < 21 THEN 1 END) as lost
+            FROM revlog r
+            JOIN cards c ON c.id = r.cid
+            JOIN notes n ON n.id = c.nid
+            WHERE c.did = ?1 AND n.mid = ?2 AND c.ord = 0
+                AND c.queue != {QUEUE_TYPE_SUSPENDED}
+                AND r.id >= ?3 AND r.id < ?4
+            "#
+        );
+
+        let (matured_passages, lost_passages): (i64, i64) = conn.query_row(
+            &progress_query,
+            [deck_id, model_id, day_start_ms, day_end_ms],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        // Update cumulative progress
+        cumulative_passages += matured_passages - lost_passages;
+
+        results.push(DayStats {
+            date: date_str,
+            minutes,
+            matured_passages,
+            lost_passages,
+            cumulative_passages,
+        });
+    }
 
     Ok(results)
 }

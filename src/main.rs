@@ -1,8 +1,8 @@
 use anki_bible_stats::{
-    get_bible_stats, get_study_time_last_30_days, get_today_study_time,
+    get_bible_stats, get_last_30_days_stats, get_today_study_time,
     models::{
-        AggregateStats, BibleStats, BookStats, DailyStats, DailyStudyTime, DailySummary,
-        HealthCheck, TodayStats,
+        AggregateStats, BibleStats, BookStats, DailyStats, DailySummary, DayStats, HealthCheck,
+        TodayStats,
     },
 };
 use axum::{
@@ -30,7 +30,7 @@ use utoipa_swagger_ui::SwaggerUi;
     ),
     components(
         schemas(HealthCheck, BibleStats, TodayStats, DailyStats,
-                BookStats, AggregateStats, DailyStudyTime, DailySummary)
+                BookStats, AggregateStats, DayStats, DailySummary)
     ),
     tags(
         (name = "health", description = "Health check endpoints"),
@@ -215,7 +215,7 @@ async fn get_today_stats(
 async fn get_daily_stats(
     axum::extract::State(db_path): axum::extract::State<String>,
 ) -> Result<Json<DailyStats>, AppError> {
-    let daily_stats = get_study_time_last_30_days(&db_path)?;
+    let daily_stats = get_last_30_days_stats(&db_path)?;
     Ok(Json(DailyStats::new(daily_stats)))
 }
 

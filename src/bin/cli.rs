@@ -1,6 +1,6 @@
 use anki_bible_stats::models::{BookStats, BookStatsDisplay};
 use anki_bible_stats::{
-    get_bible_references, get_bible_stats, get_study_time_last_30_days, get_today_study_time,
+    get_bible_references, get_bible_stats, get_last_30_days_stats, get_today_study_time,
 };
 use clap::{Parser, Subcommand};
 use std::process;
@@ -153,26 +153,42 @@ fn run_today_command(db_path: &str) {
 }
 
 fn run_daily_command(db_path: &str) {
-    match get_study_time_last_30_days(db_path) {
+    match get_last_30_days_stats(db_path) {
         Ok(daily_stats) => {
-            println!("\n=== STUDY TIME - LAST 30 DAYS ===\n");
+            println!("\n=== DAILY STATS - LAST 30 DAYS ===\n");
 
             let total_minutes: f64 = daily_stats.iter().map(|d| d.minutes).sum();
             let avg_minutes = total_minutes / daily_stats.len() as f64;
+            let total_matured: i64 = daily_stats.iter().map(|d| d.matured_passages).sum();
+            let total_lost: i64 = daily_stats.iter().map(|d| d.lost_passages).sum();
 
             // Print each day
             for day in &daily_stats {
                 let hours = day.minutes / 60.0;
-                if day.minutes > 0.0 {
-                    println!("{}: {:.2} min ({:.1} hrs)", day.date, day.minutes, hours);
+                let progress_str = if day.matured_passages > 0 || day.lost_passages > 0 {
+                    format!(
+                        " | Matured: {}, Lost: {}, Cumulative: {}",
+                        day.matured_passages, day.lost_passages, day.cumulative_passages
+                    )
+                } else if day.cumulative_passages != 0 {
+                    format!(" | Cumulative: {}", day.cumulative_passages)
                 } else {
-                    println!("{}: --- (no study)", day.date);
+                    String::new()
+                };
+
+                if day.minutes > 0.0 || day.matured_passages > 0 || day.lost_passages > 0 {
+                    println!(
+                        "{}: {:.2} min ({:.1} hrs){}",
+                        day.date, day.minutes, hours, progress_str
+                    );
+                } else {
+                    println!("{}: --- (no activity)", day.date);
                 }
             }
 
             println!("\n--- SUMMARY ---");
             println!(
-                "Total: {:.2} minutes ({:.1} hours)",
+                "Study Time: {:.2} minutes ({:.1} hours)",
                 total_minutes,
                 total_minutes / 60.0
             );
@@ -184,6 +200,11 @@ fn run_daily_command(db_path: &str) {
 
             let days_studied = daily_stats.iter().filter(|d| d.minutes > 0.0).count();
             println!("Days studied: {} out of 30", days_studied);
+
+            println!("\nProgress:");
+            println!("  Matured: {} passages", total_matured);
+            println!("  Lost: {} passages", total_lost);
+            println!("  Net: {} passages", total_matured - total_lost);
         }
         Err(e) => {
             eprintln!("Error: {:#}", e);

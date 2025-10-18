@@ -171,17 +171,14 @@ impl Default for BibleStats {
     }
 }
 
-/// Study time statistics for a single day
+/// Study time and progress statistics for a single day
 #[derive(Debug, Clone, Serialize, ToSchema)]
-pub struct DailyStudyTime {
+pub struct DayStats {
     pub date: String,
     pub minutes: f64,
-}
-
-impl DailyStudyTime {
-    pub fn new(date: String, minutes: f64) -> Self {
-        Self { date, minutes }
-    }
+    pub matured_passages: i64,
+    pub lost_passages: i64,
+    pub cumulative_passages: i64,
 }
 
 /// Health check response
@@ -222,7 +219,7 @@ impl TodayStats {
     }
 }
 
-/// Summary statistics for daily study time
+/// Summary statistics for daily study time and progress
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct DailySummary {
     pub total_minutes: f64,
@@ -231,13 +228,18 @@ pub struct DailySummary {
     pub average_hours_per_day: f64,
     pub days_studied: usize,
     pub total_days: usize,
+    pub total_matured_passages: i64,
+    pub total_lost_passages: i64,
+    pub net_progress: i64,
 }
 
 impl DailySummary {
-    pub fn from_daily_stats(daily: &[DailyStudyTime]) -> Self {
+    pub fn from_daily_stats(daily: &[DayStats]) -> Self {
         let total_minutes: f64 = daily.iter().map(|d| d.minutes).sum();
         let avg_minutes = total_minutes / daily.len() as f64;
         let days_studied = daily.iter().filter(|d| d.minutes > 0.0).count();
+        let total_matured: i64 = daily.iter().map(|d| d.matured_passages).sum();
+        let total_lost: i64 = daily.iter().map(|d| d.lost_passages).sum();
 
         Self {
             total_minutes,
@@ -246,6 +248,9 @@ impl DailySummary {
             average_hours_per_day: avg_minutes / 60.0,
             days_studied,
             total_days: daily.len(),
+            total_matured_passages: total_matured,
+            total_lost_passages: total_lost,
+            net_progress: total_matured - total_lost,
         }
     }
 }
@@ -253,12 +258,12 @@ impl DailySummary {
 /// Daily study time response with summary
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct DailyStats {
-    pub days: Vec<DailyStudyTime>,
+    pub days: Vec<DayStats>,
     pub summary: DailySummary,
 }
 
 impl DailyStats {
-    pub fn new(days: Vec<DailyStudyTime>) -> Self {
+    pub fn new(days: Vec<DayStats>) -> Self {
         let summary = DailySummary::from_daily_stats(&days);
         Self { days, summary }
     }
