@@ -182,3 +182,83 @@ impl DailyStudyTime {
         Self { date, minutes }
     }
 }
+
+/// Health check response
+#[derive(Debug, Clone, Serialize)]
+pub struct HealthCheck {
+    pub status: String,
+    pub service: String,
+}
+
+impl HealthCheck {
+    pub fn new() -> Self {
+        Self {
+            status: "ok".to_string(),
+            service: "anki-bible-stats".to_string(),
+        }
+    }
+}
+
+impl Default for HealthCheck {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Today's study time response
+#[derive(Debug, Clone, Serialize)]
+pub struct TodayStats {
+    pub minutes: f64,
+    pub hours: f64,
+}
+
+impl TodayStats {
+    pub fn new(minutes: f64) -> Self {
+        Self {
+            minutes,
+            hours: minutes / 60.0,
+        }
+    }
+}
+
+/// Summary statistics for daily study time
+#[derive(Debug, Clone, Serialize)]
+pub struct DailySummary {
+    pub total_minutes: f64,
+    pub total_hours: f64,
+    pub average_minutes_per_day: f64,
+    pub average_hours_per_day: f64,
+    pub days_studied: usize,
+    pub total_days: usize,
+}
+
+impl DailySummary {
+    pub fn from_daily_stats(daily: &[DailyStudyTime]) -> Self {
+        let total_minutes: f64 = daily.iter().map(|d| d.minutes).sum();
+        let avg_minutes = total_minutes / daily.len() as f64;
+        let days_studied = daily.iter().filter(|d| d.minutes > 0.0).count();
+
+        Self {
+            total_minutes,
+            total_hours: total_minutes / 60.0,
+            average_minutes_per_day: avg_minutes,
+            average_hours_per_day: avg_minutes / 60.0,
+            days_studied,
+            total_days: daily.len(),
+        }
+    }
+}
+
+/// Daily study time response with summary
+#[derive(Debug, Clone, Serialize)]
+pub struct DailyStats {
+    pub days: Vec<DailyStudyTime>,
+    pub summary: DailySummary,
+}
+
+impl DailyStats {
+    pub fn new(days: Vec<DailyStudyTime>) -> Self {
+        let summary = DailySummary::from_daily_stats(&days);
+        Self { days, summary }
+    }
+}

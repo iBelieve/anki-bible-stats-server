@@ -1,4 +1,7 @@
-use anki_bible_stats::{get_bible_stats, get_study_time_last_30_days, get_today_study_time};
+use anki_bible_stats::{
+    get_bible_stats, get_study_time_last_30_days, get_today_study_time,
+    models::{BibleStats, DailyStats, HealthCheck, TodayStats},
+};
 use axum::{
     Router,
     extract::Request,
@@ -85,52 +88,31 @@ async fn auth_middleware(
 
 /// Health check endpoint
 async fn health_check() -> impl IntoResponse {
-    Json(json!({
-        "status": "ok",
-        "service": "anki-bible-stats"
-    }))
+    Json(HealthCheck::new())
 }
 
 /// Get Bible book statistics
 async fn get_books_stats(
     axum::extract::State(db_path): axum::extract::State<String>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<BibleStats>, AppError> {
     let stats = get_bible_stats(&db_path)?;
-    Ok(Json(json!(stats)))
+    Ok(Json(stats))
 }
 
 /// Get today's study time
 async fn get_today_stats(
     axum::extract::State(db_path): axum::extract::State<String>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<TodayStats>, AppError> {
     let minutes = get_today_study_time(&db_path)?;
-    Ok(Json(json!({
-        "minutes": minutes,
-        "hours": minutes / 60.0
-    })))
+    Ok(Json(TodayStats::new(minutes)))
 }
 
 /// Get daily study time for last 30 days
 async fn get_daily_stats(
     axum::extract::State(db_path): axum::extract::State<String>,
-) -> Result<Json<serde_json::Value>, AppError> {
+) -> Result<Json<DailyStats>, AppError> {
     let daily_stats = get_study_time_last_30_days(&db_path)?;
-
-    let total_minutes: f64 = daily_stats.iter().map(|d| d.minutes).sum();
-    let avg_minutes = total_minutes / daily_stats.len() as f64;
-    let days_studied = daily_stats.iter().filter(|d| d.minutes > 0.0).count();
-
-    Ok(Json(json!({
-        "daily": daily_stats,
-        "summary": {
-            "total_minutes": total_minutes,
-            "total_hours": total_minutes / 60.0,
-            "average_minutes_per_day": avg_minutes,
-            "average_hours_per_day": avg_minutes / 60.0,
-            "days_studied": days_studied,
-            "total_days": daily_stats.len()
-        }
-    })))
+    Ok(Json(DailyStats::new(daily_stats)))
 }
 
 /// Custom error type for API errors
