@@ -2,7 +2,9 @@ use anyhow::{Context, Result};
 use chrono::{Datelike, Duration, Local, TimeZone};
 use chrono_tz::Tz;
 use rusqlite::{Connection, OpenFlags};
+use std::collections::HashMap;
 
+use crate::book_name_parser;
 use crate::config::TIMEZONE;
 use crate::models::{BookStats, DailyStudyTime};
 use crate::verse_parser;
@@ -44,6 +46,19 @@ pub fn open_database(path: &str) -> Result<Connection> {
     )
     .context("Failed to register count_verses SQLite function")?;
 
+    // Register custom SQLite function for parsing book names from references
+    conn.create_scalar_function(
+        "parse_book_name",
+        1, // number of arguments
+        rusqlite::functions::FunctionFlags::SQLITE_UTF8
+            | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            let reference = ctx.get::<String>(0)?;
+            Ok(book_name_parser::parse_book_name(&reference))
+        },
+    )
+    .context("Failed to register parse_book_name SQLite function")?;
+
     Ok(conn)
 }
 
@@ -77,18 +92,17 @@ pub fn get_model_id(conn: &Connection) -> Result<i64> {
     Ok(model_id)
 }
 
-/// Gets statistics for a specific Bible book
-pub fn get_book_stats(
+/// Gets statistics for all Bible books in a single query using GROUP BY
+/// Returns a HashMap with book names as keys and BookStats as values
+pub fn get_all_books_stats(
     conn: &Connection,
-    book_name: &str,
     deck_id: i64,
     model_id: i64,
-) -> Result<BookStats> {
-    let search_pattern = format!("{}%", book_name);
-
+) -> Result<HashMap<String, BookStats>> {
     let query = format!(
         r#"
         SELECT
+            parse_book_name(sfld) as book,
             SUM(CASE WHEN queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl >= 21 THEN 1 ELSE 0 END) as mature_passages,
             SUM(CASE WHEN queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR
                               (queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl < 21) THEN 1 ELSE 0 END) as young_passages,
@@ -101,30 +115,39 @@ pub fn get_book_stats(
             SUM(CASE WHEN queue<{QUEUE_TYPE_NEW} THEN count_verses(sfld) ELSE 0 END) as suspended_verses
         FROM cards
         JOIN notes ON notes.id = cards.nid
-        WHERE ord = 0 AND mid = ?1 AND did = ?2 AND sfld LIKE ?3
+        WHERE ord = 0 AND mid = ?1 AND did = ?2
+        GROUP BY book
+        HAVING book IS NOT NULL
         "#
     );
 
     let mut stmt = conn.prepare(&query)?;
 
-    let stats = stmt.query_row(
-        rusqlite::params![model_id, deck_id, search_pattern],
-        |row| {
-            Ok(BookStats {
-                book: book_name.to_string(),
-                mature_passages: row.get(0).unwrap_or(0),
-                young_passages: row.get(1).unwrap_or(0),
-                unseen_passages: row.get(2).unwrap_or(0),
-                suspended_passages: row.get(3).unwrap_or(0),
-                mature_verses: row.get(4).unwrap_or(0),
-                young_verses: row.get(5).unwrap_or(0),
-                unseen_verses: row.get(6).unwrap_or(0),
-                suspended_verses: row.get(7).unwrap_or(0),
-            })
-        },
-    )?;
+    let books_iter = stmt.query_map(rusqlite::params![model_id, deck_id], |row| {
+        let book_name: String = row.get(0)?;
+        Ok((
+            book_name.clone(),
+            BookStats {
+                book: book_name,
+                mature_passages: row.get(1).unwrap_or(0),
+                young_passages: row.get(2).unwrap_or(0),
+                unseen_passages: row.get(3).unwrap_or(0),
+                suspended_passages: row.get(4).unwrap_or(0),
+                mature_verses: row.get(5).unwrap_or(0),
+                young_verses: row.get(6).unwrap_or(0),
+                unseen_verses: row.get(7).unwrap_or(0),
+                suspended_verses: row.get(8).unwrap_or(0),
+            },
+        ))
+    })?;
 
-    Ok(stats)
+    let mut books_map = HashMap::new();
+    for book_result in books_iter {
+        let (book_name, stats) = book_result?;
+        books_map.insert(book_name, stats);
+    }
+
+    Ok(books_map)
 }
 
 /// Gets a config value from the Anki database config table

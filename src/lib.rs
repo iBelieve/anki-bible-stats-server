@@ -1,4 +1,5 @@
 pub mod bible;
+pub mod book_name_parser;
 pub mod config;
 pub mod db;
 pub mod models;
@@ -15,17 +16,46 @@ pub fn get_bible_stats(db_path: &str) -> Result<BibleStats> {
     let deck_id = db::get_deck_id(&conn)?;
     let model_id = db::get_model_id(&conn)?;
 
+    // Get all book stats in a single query
+    let books_map = db::get_all_books_stats(&conn, deck_id, model_id)?;
+
     let mut stats = BibleStats::new();
 
-    // Get Old Testament stats
+    // Get Old Testament stats - lookup from HashMap or create zero-filled stats
     for &book in OLD_TESTAMENT {
-        let book_stats = db::get_book_stats(&conn, book, deck_id, model_id)?;
+        let book_stats = books_map
+            .get(book)
+            .cloned()
+            .unwrap_or_else(|| models::BookStats {
+                book: book.to_string(),
+                mature_passages: 0,
+                young_passages: 0,
+                unseen_passages: 0,
+                suspended_passages: 0,
+                mature_verses: 0,
+                young_verses: 0,
+                unseen_verses: 0,
+                suspended_verses: 0,
+            });
         stats.old_testament.add_book(book_stats);
     }
 
-    // Get New Testament stats
+    // Get New Testament stats - lookup from HashMap or create zero-filled stats
     for &book in NEW_TESTAMENT {
-        let book_stats = db::get_book_stats(&conn, book, deck_id, model_id)?;
+        let book_stats = books_map
+            .get(book)
+            .cloned()
+            .unwrap_or_else(|| models::BookStats {
+                book: book.to_string(),
+                mature_passages: 0,
+                young_passages: 0,
+                unseen_passages: 0,
+                suspended_passages: 0,
+                mature_verses: 0,
+                young_verses: 0,
+                unseen_verses: 0,
+                suspended_verses: 0,
+            });
         stats.new_testament.add_book(book_stats);
     }
 
