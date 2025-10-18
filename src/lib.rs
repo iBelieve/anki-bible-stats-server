@@ -43,3 +43,11 @@ pub fn get_study_time_last_30_days(db_path: &str) -> Result<Vec<DailyStudyTime>>
     let conn = db::open_database(db_path)?;
     db::get_last_30_days_study_minutes(&conn)
 }
+
+/// Gets all Bible references from the database, sorted alphabetically
+pub fn get_bible_references(db_path: &str) -> Result<Vec<String>> {
+    let conn = db::open_database(db_path)?;
+    let deck_id = db::get_deck_id(&conn)?;
+    let model_id = db::get_model_id(&conn)?;
+    db::get_all_references(&conn, deck_id, model_id)
+}

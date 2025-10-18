@@ -1,5 +1,7 @@
 use anki_bible_stats::models::{BookStats, BookStatsDisplay};
-use anki_bible_stats::{get_bible_stats, get_study_time_last_30_days, get_today_study_time};
+use anki_bible_stats::{
+    get_bible_references, get_bible_stats, get_study_time_last_30_days, get_today_study_time,
+};
 use clap::{Parser, Subcommand};
 use std::process;
 use tabled::{Table, settings::Style};
@@ -33,6 +35,12 @@ enum Commands {
         #[arg(value_name = "DATABASE_PATH")]
         db_path: String,
     },
+    /// List all Bible references in the database
+    Refs {
+        /// Path to the Anki database file
+        #[arg(value_name = "DATABASE_PATH")]
+        db_path: String,
+    },
 }
 
 fn main() {
@@ -47,6 +55,9 @@ fn main() {
         }
         Commands::Daily { db_path } => {
             run_daily_command(&db_path);
+        }
+        Commands::Refs { db_path } => {
+            run_refs_command(&db_path);
         }
     }
 }
@@ -173,6 +184,20 @@ fn run_daily_command(db_path: &str) {
 
             let days_studied = daily_stats.iter().filter(|d| d.minutes > 0.0).count();
             println!("Days studied: {} out of 30", days_studied);
+        }
+        Err(e) => {
+            eprintln!("Error: {:#}", e);
+            process::exit(1);
+        }
+    }
+}
+
+fn run_refs_command(db_path: &str) {
+    match get_bible_references(db_path) {
+        Ok(references) => {
+            for reference in references {
+                println!("{}", reference);
+            }
         }
         Err(e) => {
             eprintln!("Error: {:#}", e);

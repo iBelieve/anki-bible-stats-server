@@ -282,3 +282,21 @@ pub fn get_last_30_days_study_minutes(conn: &Connection) -> Result<Vec<DailyStud
 
     Ok(results)
 }
+
+/// Gets all distinct Bible references from the database, sorted alphabetically
+pub fn get_all_references(conn: &Connection, deck_id: i64, model_id: i64) -> Result<Vec<String>> {
+    let query = r#"
+        SELECT DISTINCT n.sfld
+        FROM notes n
+        JOIN cards c ON c.nid = n.id
+        WHERE c.did = ?1 AND n.mid = ?2
+        ORDER BY n.sfld
+    "#;
+
+    let mut stmt = conn.prepare(query)?;
+    let references = stmt
+        .query_map([deck_id, model_id], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<String>, _>>()?;
+
+    Ok(references)
+}
