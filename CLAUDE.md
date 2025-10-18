@@ -128,9 +128,19 @@ Get study time for each of the last 30 days
 }
 ```
 
+### `GET /swagger-ui`
+Interactive Swagger UI for API documentation and testing (no authentication required)
+
+**Access:** Open `http://localhost:3000/swagger-ui` in your browser to view the interactive API documentation. You can test all endpoints directly from the Swagger UI interface.
+
+### `GET /api-docs/openapi.json`
+Raw OpenAPI 3.0 specification in JSON format (no authentication required)
+
+**Response:** Returns the complete OpenAPI specification document describing all endpoints, request/response schemas, and authentication requirements.
+
 ### Authentication
 
-All API endpoints (except `/health`) require authentication via Bearer token:
+All API endpoints (except `/health`, `/swagger-ui`, and `/api-docs/openapi.json`) require authentication via Bearer token:
 
 ```bash
 curl -H "Authorization: Bearer your-api-key-here" http://localhost:3000/api/stats/today
@@ -231,6 +241,7 @@ Queue type constants are based on Anki's internal schema (see link referenced in
 - **tokio**: Async runtime
 - **tower** / **tower-http**: Middleware support (CORS, etc.)
 - **serde** / **serde_json**: JSON serialization
+- **utoipa** / **utoipa-swagger-ui**: OpenAPI documentation generation and Swagger UI
 
 ### CLI Dependencies
 - **clap**: Command-line argument parsing with derive macros

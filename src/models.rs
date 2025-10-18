@@ -1,8 +1,9 @@
 use serde::Serialize;
 use tabled::Tabled;
+use utoipa::ToSchema;
 
 /// Statistics for a single Bible book
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct BookStats {
     pub book: String,
     pub mature_passages: i64,
@@ -57,7 +58,7 @@ impl BookStats {
 }
 
 /// Aggregated statistics for a collection of books
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct AggregateStats {
     pub label: String,
     pub mature_passages: i64,
@@ -109,7 +110,7 @@ impl AggregateStats {
 }
 
 /// Complete Bible statistics report
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct BibleStats {
     pub old_testament: AggregateStats,
     pub new_testament: AggregateStats,
@@ -171,7 +172,7 @@ impl Default for BibleStats {
 }
 
 /// Study time statistics for a single day
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct DailyStudyTime {
     pub date: String,
     pub minutes: f64,
@@ -184,7 +185,7 @@ impl DailyStudyTime {
 }
 
 /// Health check response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct HealthCheck {
     pub status: String,
     pub service: String,
@@ -206,7 +207,7 @@ impl Default for HealthCheck {
 }
 
 /// Today's study time response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct TodayStats {
     pub minutes: f64,
     pub hours: f64,
@@ -222,7 +223,7 @@ impl TodayStats {
 }
 
 /// Summary statistics for daily study time
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct DailySummary {
     pub total_minutes: f64,
     pub total_hours: f64,
@@ -250,7 +251,7 @@ impl DailySummary {
 }
 
 /// Daily study time response with summary
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct DailyStats {
     pub days: Vec<DailyStudyTime>,
     pub summary: DailySummary,

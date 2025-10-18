@@ -1,6 +1,9 @@
 use anki_bible_stats::{
     get_bible_stats, get_study_time_last_30_days, get_today_study_time,
-    models::{BibleStats, DailyStats, HealthCheck, TodayStats},
+    models::{
+        AggregateStats, BibleStats, BookStats, DailyStats, DailyStudyTime, DailySummary,
+        HealthCheck, TodayStats,
+    },
 };
 use axum::{
     Router,
@@ -13,6 +16,54 @@ use axum::{
 use serde_json::json;
 use std::env;
 use tower_http::cors::CorsLayer;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
+
+/// OpenAPI documentation structure
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        health_check,
+        get_books_stats,
+        get_today_stats,
+        get_daily_stats,
+    ),
+    components(
+        schemas(HealthCheck, BibleStats, TodayStats, DailyStats,
+                BookStats, AggregateStats, DailyStudyTime, DailySummary)
+    ),
+    tags(
+        (name = "health", description = "Health check endpoints"),
+        (name = "statistics", description = "Bible memorization statistics endpoints")
+    ),
+    info(
+        title = "Anki Bible Stats API",
+        description = "REST API for analyzing Anki flashcard databases to generate Bible verse memorization statistics",
+        license(
+            name = "AGPL-3.0-or-later",
+            url = "https://www.gnu.org/licenses/agpl-3.0.en.html"
+        )
+    ),
+    modifiers(&SecurityAddon)
+)]
+struct ApiDoc;
+
+struct SecurityAddon;
+
+impl utoipa::Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "bearer_auth",
+                utoipa::openapi::security::SecurityScheme::Http(
+                    utoipa::openapi::security::Http::new(
+                        utoipa::openapi::security::HttpAuthScheme::Bearer,
+                    ),
+                ),
+            )
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -38,6 +89,7 @@ async fn main() {
 
     // Build the router with routes
     let app = Router::new()
+        .merge(SwaggerUi::new("/swagger-ui").url("/openapi.json", ApiDoc::openapi()))
         .route("/health", get(health_check))
         .route("/api/stats/books", get(get_books_stats))
         .route("/api/stats/today", get(get_today_stats))
@@ -54,6 +106,9 @@ async fn main() {
         .expect("Failed to bind to port 3000");
 
     println!("Server listening on http://0.0.0.0:3000");
+    println!("API Documentation:");
+    println!("  - Swagger UI: http://localhost:3000/swagger-ui/");
+    println!("  - OpenAPI spec: http://localhost:3000/openapi.json");
 
     axum::serve(listener, app)
         .await
@@ -66,8 +121,10 @@ async fn auth_middleware(
     next: Next,
     expected_api_key: String,
 ) -> Result<Response, StatusCode> {
-    // Skip auth for health check endpoint
-    if req.uri().path() == "/health" {
+    let path = req.uri().path();
+
+    // Skip auth for public endpoints
+    if path == "/health" || path == "/openapi.json" || path.starts_with("/swagger-ui") {
         return Ok(next.run(req).await);
     }
 
@@ -87,11 +144,32 @@ async fn auth_middleware(
 }
 
 /// Health check endpoint
+#[utoipa::path(
+    get,
+    path = "/health",
+    responses(
+        (status = 200, description = "Service is healthy", body = HealthCheck)
+    ),
+    tag = "health"
+)]
 async fn health_check() -> impl IntoResponse {
     Json(HealthCheck::new())
 }
 
 /// Get Bible book statistics
+#[utoipa::path(
+    get,
+    path = "/api/stats/books",
+    responses(
+        (status = 200, description = "Bible book statistics retrieved successfully", body = BibleStats),
+        (status = 401, description = "Unauthorized - invalid or missing API key"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(
+        ("bearer_auth" = [])
+    ),
+    tag = "statistics"
+)]
 async fn get_books_stats(
     axum::extract::State(db_path): axum::extract::State<String>,
 ) -> Result<Json<BibleStats>, AppError> {
@@ -100,6 +178,19 @@ async fn get_books_stats(
 }
 
 /// Get today's study time
+#[utoipa::path(
+    get,
+    path = "/api/stats/today",
+    responses(
+        (status = 200, description = "Today's study time retrieved successfully", body = TodayStats),
+        (status = 401, description = "Unauthorized - invalid or missing API key"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(
+        ("bearer_auth" = [])
+    ),
+    tag = "statistics"
+)]
 async fn get_today_stats(
     axum::extract::State(db_path): axum::extract::State<String>,
 ) -> Result<Json<TodayStats>, AppError> {
@@ -108,6 +199,19 @@ async fn get_today_stats(
 }
 
 /// Get daily study time for last 30 days
+#[utoipa::path(
+    get,
+    path = "/api/stats/daily",
+    responses(
+        (status = 200, description = "Daily study time for last 30 days retrieved successfully", body = DailyStats),
+        (status = 401, description = "Unauthorized - invalid or missing API key"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(
+        ("bearer_auth" = [])
+    ),
+    tag = "statistics"
+)]
 async fn get_daily_stats(
     axum::extract::State(db_path): axum::extract::State<String>,
 ) -> Result<Json<DailyStats>, AppError> {
