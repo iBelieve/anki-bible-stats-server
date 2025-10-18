@@ -1,8 +1,8 @@
 use anki_bible_stats::{
     get_bible_stats, get_last_30_days_stats, get_today_study_time,
     models::{
-        AggregateStats, BibleStats, BookStats, DailyStats, DailySummary, DayStats, HealthCheck,
-        TodayStats,
+        AggregateStats, BibleStats, BookStats, DailyStats, DailySummary, DayStats, ErrorResponse,
+        HealthCheck, TodayStats,
     },
 };
 use axum::{
@@ -13,7 +13,6 @@ use axum::{
     response::{IntoResponse, Json, Response},
     routing::get,
 };
-use serde_json::json;
 use std::env;
 use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
@@ -30,7 +29,7 @@ use utoipa_swagger_ui::SwaggerUi;
     ),
     components(
         schemas(HealthCheck, BibleStats, TodayStats, DailyStats,
-                BookStats, AggregateStats, DayStats, DailySummary)
+                BookStats, AggregateStats, DayStats, DailySummary, ErrorResponse)
     ),
     tags(
         (name = "health", description = "Health check endpoints"),
@@ -163,7 +162,7 @@ async fn health_check() -> impl IntoResponse {
     responses(
         (status = 200, description = "Bible book statistics retrieved successfully", body = BibleStats),
         (status = 401, description = "Unauthorized - invalid or missing API key"),
-        (status = 500, description = "Internal server error")
+        (status = 500, description = "Internal server error", body = ErrorResponse)
     ),
     security(
         ("bearer_auth" = [])
@@ -184,7 +183,7 @@ async fn get_books_stats(
     responses(
         (status = 200, description = "Today's study time retrieved successfully", body = TodayStats),
         (status = 401, description = "Unauthorized - invalid or missing API key"),
-        (status = 500, description = "Internal server error")
+        (status = 500, description = "Internal server error", body = ErrorResponse)
     ),
     security(
         ("bearer_auth" = [])
@@ -205,7 +204,7 @@ async fn get_today_stats(
     responses(
         (status = 200, description = "Daily study time for last 30 days retrieved successfully", body = DailyStats),
         (status = 401, description = "Unauthorized - invalid or missing API key"),
-        (status = 500, description = "Internal server error")
+        (status = 500, description = "Internal server error", body = ErrorResponse)
     ),
     security(
         ("bearer_auth" = [])
@@ -226,9 +225,7 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": format!("{:#}", self.0)
-            })),
+            Json(ErrorResponse::new(format!("{:#}", self.0))),
         )
             .into_response()
     }

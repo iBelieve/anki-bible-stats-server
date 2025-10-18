@@ -268,3 +268,15 @@ impl DailyStats {
         Self { days, summary }
     }
 }
+
+/// Error response
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ErrorResponse {
+    pub error: String,
+}
+
+impl ErrorResponse {
+    pub fn new(error: String) -> Self {
+        Self { error }
+    }
+}
