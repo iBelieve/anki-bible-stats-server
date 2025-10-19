@@ -1,6 +1,7 @@
 use anki_bible_stats::models::{BookStats, BookStatsDisplay};
 use anki_bible_stats::{
-    get_bible_references, get_bible_stats, get_last_30_days_stats, get_today_study_time,
+    get_bible_references, get_bible_stats, get_last_12_weeks_stats, get_last_30_days_stats,
+    get_today_study_time,
 };
 use clap::{Parser, Subcommand};
 use std::process;
@@ -35,6 +36,12 @@ enum Commands {
         #[arg(value_name = "DATABASE_PATH")]
         db_path: String,
     },
+    /// Show study time for each of the last 12 weeks
+    Weekly {
+        /// Path to the Anki database file
+        #[arg(value_name = "DATABASE_PATH")]
+        db_path: String,
+    },
     /// List all Bible references in the database
     Refs {
         /// Path to the Anki database file
@@ -55,6 +62,9 @@ fn main() {
         }
         Commands::Daily { db_path } => {
             run_daily_command(&db_path);
+        }
+        Commands::Weekly { db_path } => {
+            run_weekly_command(&db_path);
         }
         Commands::Refs { db_path } => {
             run_refs_command(&db_path);
@@ -200,6 +210,67 @@ fn run_daily_command(db_path: &str) {
 
             let days_studied = daily_stats.iter().filter(|d| d.minutes > 0.0).count();
             println!("Days studied: {} out of 30", days_studied);
+
+            println!("\nProgress:");
+            println!("  Matured: {} passages", total_matured);
+            println!("  Lost: {} passages", total_lost);
+            println!("  Net: {} passages", total_matured - total_lost);
+        }
+        Err(e) => {
+            eprintln!("Error: {:#}", e);
+            process::exit(1);
+        }
+    }
+}
+
+fn run_weekly_command(db_path: &str) {
+    match get_last_12_weeks_stats(db_path) {
+        Ok(weekly_stats) => {
+            println!("\n=== WEEKLY STATS - LAST 12 WEEKS ===\n");
+
+            let total_minutes: f64 = weekly_stats.iter().map(|w| w.minutes).sum();
+            let avg_minutes = total_minutes / weekly_stats.len() as f64;
+            let total_matured: i64 = weekly_stats.iter().map(|w| w.matured_passages).sum();
+            let total_lost: i64 = weekly_stats.iter().map(|w| w.lost_passages).sum();
+
+            // Print each week
+            for week in &weekly_stats {
+                let hours = week.minutes / 60.0;
+                let progress_str = if week.matured_passages > 0 || week.lost_passages > 0 {
+                    format!(
+                        " | Matured: {}, Lost: {}, Cumulative: {}",
+                        week.matured_passages, week.lost_passages, week.cumulative_passages
+                    )
+                } else if week.cumulative_passages != 0 {
+                    format!(" | Cumulative: {}", week.cumulative_passages)
+                } else {
+                    String::new()
+                };
+
+                if week.minutes > 0.0 || week.matured_passages > 0 || week.lost_passages > 0 {
+                    println!(
+                        "Week of {}: {:.2} min ({:.1} hrs){}",
+                        week.week_start, week.minutes, hours, progress_str
+                    );
+                } else {
+                    println!("Week of {}: --- (no activity)", week.week_start);
+                }
+            }
+
+            println!("\n--- SUMMARY ---");
+            println!(
+                "Study Time: {:.2} minutes ({:.1} hours)",
+                total_minutes,
+                total_minutes / 60.0
+            );
+            println!(
+                "Average per week: {:.2} minutes ({:.1} hours)",
+                avg_minutes,
+                avg_minutes / 60.0
+            );
+
+            let weeks_studied = weekly_stats.iter().filter(|w| w.minutes > 0.0).count();
+            println!("Weeks studied: {} out of 12", weeks_studied);
 
             println!("\nProgress:");
             println!("  Matured: {} passages", total_matured);

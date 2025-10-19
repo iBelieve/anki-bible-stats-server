@@ -1,8 +1,8 @@
 use anki_bible_stats::{
-    get_bible_stats, get_last_30_days_stats, get_today_study_time,
+    get_bible_stats, get_last_12_weeks_stats, get_last_30_days_stats, get_today_study_time,
     models::{
         AggregateStats, BibleStats, BookStats, DailyStats, DailySummary, DayStats, ErrorResponse,
-        HealthCheck, TodayStats,
+        HealthCheck, TodayStats, WeekStats, WeeklyStats, WeeklySummary,
     },
 };
 use axum::{
@@ -26,10 +26,11 @@ use utoipa_swagger_ui::SwaggerUi;
         get_books_stats,
         get_today_stats,
         get_daily_stats,
+        get_weekly_stats,
     ),
     components(
-        schemas(HealthCheck, BibleStats, TodayStats, DailyStats,
-                BookStats, AggregateStats, DayStats, DailySummary, ErrorResponse)
+        schemas(HealthCheck, BibleStats, TodayStats, DailyStats, WeeklyStats,
+                BookStats, AggregateStats, DayStats, DailySummary, WeekStats, WeeklySummary, ErrorResponse)
     ),
     tags(
         (name = "health", description = "Health check endpoints"),
@@ -93,6 +94,7 @@ async fn main() {
         .route("/api/stats/books", get(get_books_stats))
         .route("/api/stats/today", get(get_today_stats))
         .route("/api/stats/daily", get(get_daily_stats))
+        .route("/api/stats/weekly", get(get_weekly_stats))
         .layer(middleware::from_fn(move |req, next| {
             auth_middleware(req, next, api_key.clone())
         }))
@@ -216,6 +218,27 @@ async fn get_daily_stats(
 ) -> Result<Json<DailyStats>, AppError> {
     let daily_stats = get_last_30_days_stats(&db_path)?;
     Ok(Json(DailyStats::new(daily_stats)))
+}
+
+/// Get weekly study time for last 12 weeks
+#[utoipa::path(
+    get,
+    path = "/api/stats/weekly",
+    responses(
+        (status = 200, description = "Weekly study time for last 12 weeks retrieved successfully", body = WeeklyStats),
+        (status = 401, description = "Unauthorized - invalid or missing API key"),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    security(
+        ("bearer_auth" = [])
+    ),
+    tag = "statistics"
+)]
+async fn get_weekly_stats(
+    axum::extract::State(db_path): axum::extract::State<String>,
+) -> Result<Json<WeeklyStats>, AppError> {
+    let weekly_stats = get_last_12_weeks_stats(&db_path)?;
+    Ok(Json(WeeklyStats::new(weekly_stats)))
 }
 
 /// Custom error type for API errors

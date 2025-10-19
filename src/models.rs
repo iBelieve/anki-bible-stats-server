@@ -269,6 +269,66 @@ impl DailyStats {
     }
 }
 
+/// Study time and progress statistics for a single week
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct WeekStats {
+    pub week_start: String,
+    pub minutes: f64,
+    pub matured_passages: i64,
+    pub lost_passages: i64,
+    pub cumulative_passages: i64,
+}
+
+/// Summary statistics for weekly study time and progress
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct WeeklySummary {
+    pub total_minutes: f64,
+    pub total_hours: f64,
+    pub average_minutes_per_week: f64,
+    pub average_hours_per_week: f64,
+    pub weeks_studied: usize,
+    pub total_weeks: usize,
+    pub total_matured_passages: i64,
+    pub total_lost_passages: i64,
+    pub net_progress: i64,
+}
+
+impl WeeklySummary {
+    pub fn from_weekly_stats(weekly: &[WeekStats]) -> Self {
+        let total_minutes: f64 = weekly.iter().map(|w| w.minutes).sum();
+        let avg_minutes = total_minutes / weekly.len() as f64;
+        let weeks_studied = weekly.iter().filter(|w| w.minutes > 0.0).count();
+        let total_matured: i64 = weekly.iter().map(|w| w.matured_passages).sum();
+        let total_lost: i64 = weekly.iter().map(|w| w.lost_passages).sum();
+
+        Self {
+            total_minutes,
+            total_hours: total_minutes / 60.0,
+            average_minutes_per_week: avg_minutes,
+            average_hours_per_week: avg_minutes / 60.0,
+            weeks_studied,
+            total_weeks: weekly.len(),
+            total_matured_passages: total_matured,
+            total_lost_passages: total_lost,
+            net_progress: total_matured - total_lost,
+        }
+    }
+}
+
+/// Weekly study time response with summary
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct WeeklyStats {
+    pub weeks: Vec<WeekStats>,
+    pub summary: WeeklySummary,
+}
+
+impl WeeklyStats {
+    pub fn new(weeks: Vec<WeekStats>) -> Self {
+        let summary = WeeklySummary::from_weekly_stats(&weeks);
+        Self { weeks, summary }
+    }
+}
+
 /// Error response
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ErrorResponse {

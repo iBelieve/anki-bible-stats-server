@@ -21,5 +21,8 @@ today:
 daily:
 	cargo run --bin cli daily collection.anki2
 
+weekly:
+	cargo run --bin cli weekly collection.anki2
+
 server:
 	ANKI_DATABASE_PATH=collection.anki2 API_KEY=test cargo run --bin anki-bible-stats

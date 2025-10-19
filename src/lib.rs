@@ -8,7 +8,7 @@ pub mod verse_parser;
 use anyhow::Result;
 
 use crate::bible::{NEW_TESTAMENT, OLD_TESTAMENT};
-use crate::models::{BibleStats, DayStats};
+use crate::models::{BibleStats, DayStats, WeekStats};
 
 /// Retrieves statistics for all Bible books from an Anki database
 pub fn get_bible_stats(db_path: &str) -> Result<BibleStats> {
@@ -72,6 +72,12 @@ pub fn get_today_study_time(db_path: &str) -> Result<f64> {
 pub fn get_last_30_days_stats(db_path: &str) -> Result<Vec<DayStats>> {
     let conn = db::open_database(db_path)?;
     db::get_last_30_days_stats(&conn)
+}
+
+/// Gets study time and learning progress for each of the last 12 weeks
+pub fn get_last_12_weeks_stats(db_path: &str) -> Result<Vec<WeekStats>> {
+    let conn = db::open_database(db_path)?;
+    db::get_last_12_weeks_stats(&conn)
 }
 
 /// Gets all Bible references from the database, sorted alphabetically

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::book_name_parser;
 use crate::config::TIMEZONE;
-use crate::models::{BookStats, DayStats};
+use crate::models::{BookStats, DayStats, WeekStats};
 use crate::verse_parser;
 
 // Anki queue type constants
@@ -255,6 +255,55 @@ fn get_day_boundaries(day_offset: i32, rollover_hour: i64) -> Result<(i64, i64, 
     ))
 }
 
+/// Helper function to calculate week boundaries for a specific week offset
+/// Weeks start on Sunday and use the same rollover hour as daily stats
+fn get_week_boundaries(week_offset: i32, rollover_hour: i64) -> Result<(i64, i64, String)> {
+    let tz: Tz = TIMEZONE
+        .parse()
+        .context("Failed to parse timezone from config")?;
+
+    let now = Local::now();
+    let now_in_tz = tz
+        .from_local_datetime(&now.naive_local())
+        .single()
+        .context("Failed to convert current time to configured timezone")?;
+
+    // Calculate days since last Sunday (0 if today is Sunday)
+    let days_since_sunday = now_in_tz.weekday().num_days_from_sunday();
+
+    // Calculate the target Sunday (go back to most recent Sunday, then subtract week_offset weeks)
+    let target_date =
+        now_in_tz - Duration::days(days_since_sunday as i64) - Duration::weeks(week_offset as i64);
+
+    // Get start of that Sunday at midnight
+    let week_midnight = tz
+        .with_ymd_and_hms(
+            target_date.year(),
+            target_date.month(),
+            target_date.day(),
+            0,
+            0,
+            0,
+        )
+        .single()
+        .context("Failed to create week's midnight")?;
+
+    // Add rollover hours for week start
+    let week_start = week_midnight + Duration::hours(rollover_hour);
+
+    // Next week start (7 days later)
+    let next_week_start = week_start + Duration::weeks(1);
+
+    // Format week start date for output
+    let week_start_str = target_date.format("%Y-%m-%d").to_string();
+
+    Ok((
+        week_start.timestamp_millis(),
+        next_week_start.timestamp_millis(),
+        week_start_str,
+    ))
+}
+
 /// Gets the total study time for today in minutes
 pub fn get_today_study_minutes(conn: &Connection) -> Result<f64> {
     let rollover_hour = get_rollover_hour(conn)?;
@@ -329,6 +378,71 @@ pub fn get_last_30_days_stats(conn: &Connection) -> Result<Vec<DayStats>> {
 
         results.push(DayStats {
             date: date_str,
+            minutes,
+            matured_passages,
+            lost_passages,
+            cumulative_passages,
+        });
+    }
+
+    Ok(results)
+}
+
+/// Gets study time and learning progress for each of the last 12 weeks
+pub fn get_last_12_weeks_stats(conn: &Connection) -> Result<Vec<WeekStats>> {
+    let rollover_hour = get_rollover_hour(conn)?;
+    let deck_id = get_deck_id(conn)?;
+    let model_id = get_model_id(conn)?;
+
+    let mut results = Vec::new();
+    let mut cumulative_passages = 0i64;
+
+    // Query each week individually (from oldest to newest)
+    for week_offset in (0..12).rev() {
+        let (week_start_ms, week_end_ms, week_start_str) =
+            get_week_boundaries(week_offset, rollover_hour)?;
+
+        // Query study time
+        let time_query = r#"
+            SELECT COALESCE(SUM(r.time), 0) as total_ms
+            FROM revlog r
+            JOIN cards c ON c.id = r.cid
+            WHERE c.did = ?1 AND r.id >= ?2 AND r.id < ?3
+        "#;
+
+        let total_ms: i64 =
+            conn.query_row(time_query, [deck_id, week_start_ms, week_end_ms], |row| {
+                row.get(0)
+            })?;
+
+        let minutes = total_ms as f64 / 60000.0;
+
+        // Query progress (maturation and loss)
+        let progress_query = format!(
+            r#"
+            SELECT
+                COUNT(CASE WHEN r.lastIvl < 21 AND r.ivl >= 21 THEN 1 END) as matured,
+                COUNT(CASE WHEN r.lastIvl >= 21 AND r.ivl < 21 THEN 1 END) as lost
+            FROM revlog r
+            JOIN cards c ON c.id = r.cid
+            JOIN notes n ON n.id = c.nid
+            WHERE c.did = ?1 AND n.mid = ?2 AND c.ord = 0
+                AND c.queue != {QUEUE_TYPE_SUSPENDED}
+                AND r.id >= ?3 AND r.id < ?4
+            "#
+        );
+
+        let (matured_passages, lost_passages): (i64, i64) = conn.query_row(
+            &progress_query,
+            [deck_id, model_id, week_start_ms, week_end_ms],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        // Update cumulative progress
+        cumulative_passages += matured_passages - lost_passages;
+
+        results.push(WeekStats {
+            week_start: week_start_str,
             minutes,
             matured_passages,
             lost_passages,
