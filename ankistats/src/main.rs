@@ -1,5 +1,5 @@
-use anki_bible_stats::models::{BookStats, BookStatsDisplay};
-use anki_bible_stats::{
+use ankistats::models::{BookStats, BookStatsDisplay};
+use ankistats::{
     get_bible_references, get_bible_stats, get_last_12_weeks_stats, get_last_30_days_stats,
     get_today_study_time,
 };

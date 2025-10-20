@@ -1,4 +1,4 @@
-use anki_bible_stats::{
+use ankistats::{
     get_bible_stats, get_last_12_weeks_stats, get_last_30_days_stats, get_today_study_time,
     models::{
         AggregateStats, BibleStats, BookStats, DailyStats, DailySummary, DayStats, ErrorResponse,
@@ -34,11 +34,11 @@ use utoipa_swagger_ui::SwaggerUi;
     ),
     tags(
         (name = "health", description = "Health check endpoints"),
-        (name = "statistics", description = "Bible memorization statistics endpoints")
+        (name = "anki", description = "Anki Bible memorization statistics endpoints")
     ),
     info(
-        title = "Anki Bible Stats API",
-        description = "REST API for analyzing Anki flashcard databases to generate Bible verse memorization statistics",
+        title = "Life Stats API",
+        description = "REST API for personal life and faith statistics.",
         license(
             name = "AGPL-3.0-or-later",
             url = "https://www.gnu.org/licenses/agpl-3.0.en.html"
@@ -84,17 +84,17 @@ async fn main() {
         std::process::exit(1);
     }
 
-    println!("Starting anki-bible-stats API server...");
+    println!("Starting life stats API server...");
     println!("Database: {}", db_path);
 
     // Build the router with routes
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/openapi.json", ApiDoc::openapi()))
         .route("/health", get(health_check))
-        .route("/api/stats/books", get(get_books_stats))
-        .route("/api/stats/today", get(get_today_stats))
-        .route("/api/stats/daily", get(get_daily_stats))
-        .route("/api/stats/weekly", get(get_weekly_stats))
+        .route("/api/anki/books", get(get_books_stats))
+        .route("/api/anki/today", get(get_today_stats))
+        .route("/api/anki/daily", get(get_daily_stats))
+        .route("/api/anki/weekly", get(get_weekly_stats))
         .layer(middleware::from_fn(move |req, next| {
             auth_middleware(req, next, api_key.clone())
         }))
@@ -160,7 +160,7 @@ async fn health_check() -> impl IntoResponse {
 /// Get Bible book statistics
 #[utoipa::path(
     get,
-    path = "/api/stats/books",
+    path = "/api/anki/books",
     responses(
         (status = 200, description = "Bible book statistics retrieved successfully", body = BibleStats),
         (status = 401, description = "Unauthorized - invalid or missing API key"),
@@ -169,7 +169,7 @@ async fn health_check() -> impl IntoResponse {
     security(
         ("bearer_auth" = [])
     ),
-    tag = "statistics"
+    tag = "anki"
 )]
 async fn get_books_stats(
     axum::extract::State(db_path): axum::extract::State<String>,
@@ -181,7 +181,7 @@ async fn get_books_stats(
 /// Get today's study time
 #[utoipa::path(
     get,
-    path = "/api/stats/today",
+    path = "/api/anki/today",
     responses(
         (status = 200, description = "Today's study time retrieved successfully", body = TodayStats),
         (status = 401, description = "Unauthorized - invalid or missing API key"),
@@ -190,7 +190,7 @@ async fn get_books_stats(
     security(
         ("bearer_auth" = [])
     ),
-    tag = "statistics"
+    tag = "anki"
 )]
 async fn get_today_stats(
     axum::extract::State(db_path): axum::extract::State<String>,
@@ -202,7 +202,7 @@ async fn get_today_stats(
 /// Get daily study time for last 30 days
 #[utoipa::path(
     get,
-    path = "/api/stats/daily",
+    path = "/api/anki/daily",
     responses(
         (status = 200, description = "Daily study time for last 30 days retrieved successfully", body = DailyStats),
         (status = 401, description = "Unauthorized - invalid or missing API key"),
@@ -211,7 +211,7 @@ async fn get_today_stats(
     security(
         ("bearer_auth" = [])
     ),
-    tag = "statistics"
+    tag = "anki"
 )]
 async fn get_daily_stats(
     axum::extract::State(db_path): axum::extract::State<String>,
@@ -223,7 +223,7 @@ async fn get_daily_stats(
 /// Get weekly study time for last 12 weeks
 #[utoipa::path(
     get,
-    path = "/api/stats/weekly",
+    path = "/api/anki/weekly",
     responses(
         (status = 200, description = "Weekly study time for last 12 weeks retrieved successfully", body = WeeklyStats),
         (status = 401, description = "Unauthorized - invalid or missing API key"),
@@ -232,7 +232,7 @@ async fn get_daily_stats(
     security(
         ("bearer_auth" = [])
     ),
-    tag = "statistics"
+    tag = "anki"
 )]
 async fn get_weekly_stats(
     axum::extract::State(db_path): axum::extract::State<String>,

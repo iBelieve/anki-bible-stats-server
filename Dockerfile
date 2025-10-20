@@ -15,7 +15,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 
 # Copy source code and build application
 COPY . .
-RUN cargo build --release --bin anki-bible-stats
+RUN cargo build --release -p backend
 
 # Stage 3: Runtime - Minimal image with just the binary
 FROM debian:bookworm-slim AS runtime
@@ -32,7 +32,7 @@ RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 
 # Copy binary from builder
-COPY --from=builder /app/target/release/anki-bible-stats /usr/local/bin/anki-bible-stats
+COPY --from=builder /app/target/release/backend /usr/local/bin/lifestats-backend
 
 USER appuser
 
@@ -40,4 +40,4 @@ USER appuser
 EXPOSE 3000
 
 # Run the web server
-CMD ["anki-bible-stats"]
+CMD ["lifestats-backend"]

@@ -3,4 +3,3 @@
 *.sqlite3
 *-shm
 *-wal
-tests/data/bible_references.txt

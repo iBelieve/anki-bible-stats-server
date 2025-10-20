@@ -36,11 +36,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "anki-bible-stats"
+name = "ankistats"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "axum",
  "chrono",
  "chrono-tz",
  "clap",
@@ -48,11 +47,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tabled",
- "tokio",
- "tower",
- "tower-http",
  "utoipa",
- "utoipa-swagger-ui",
 ]
 
 [[package]]
@@ -182,6 +177,22 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "backend"
+version = "0.1.0"
+dependencies = [
+ "ankistats",
+ "anyhow",
+ "axum",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "tower-http",
+ "utoipa",
+ "utoipa-swagger-ui",
 ]
 
 [[package]]

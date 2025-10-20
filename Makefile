@@ -1,28 +1,29 @@
 all: build
 
 build:
-	cargo build
+	cargo build -p ankistats
 
-test: tests/data/bible_references.txt
-	cargo test
+test: ankistats/tests/data/bible_references.txt
+	cargo test -p ankistats
 
-tests/data/bible_references.txt: target/debug/cli collection.anki2
-	./target/debug/cli refs collection.anki2 > tests/data/bible_references.txt
+ankistats/tests/data/bible_references.txt: target/debug/ankistats ankistats/collection.anki2
+	./target/debug/ankistats refs ankistats/collection.anki2 > ankistats/tests/data/bible_references.txt
 
-target/debug/cli:
-	cargo build --bin cli
+target/debug/ankistats:
+	cargo build -p ankistats
 
 books:
-	cargo run --bin cli books collection.anki2
+	cargo run -p ankistats -- books ankistats/collection.anki2
 
 today:
-	cargo run --bin cli today collection.anki2
+	cargo run -p ankistats -- today ankistats/collection.anki2
 
 daily:
-	cargo run --bin cli daily collection.anki2
+	cargo run -p ankistats -- daily ankistats/collection.anki2
 
 weekly:
-	cargo run --bin cli weekly collection.anki2
+	cargo run -p ankistats -- weekly ankistats/collection.anki2
 
-server:
-	ANKI_DATABASE_PATH=collection.anki2 API_KEY=test cargo run --bin anki-bible-stats
+.PHONY: backend
+backend:
+	ANKI_DATABASE_PATH=ankistats/collection.anki2 API_KEY=test cargo run -p backend
