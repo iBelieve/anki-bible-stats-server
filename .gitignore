@@ -1,5 +1,6 @@
 /target
 *.anki2
+*.sqlite
 *.sqlite3
 *-shm
 *-wal
