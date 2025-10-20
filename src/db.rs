@@ -185,11 +185,7 @@ fn get_today_start_ms(rollover_hour: i64) -> Result<i64> {
         .parse()
         .context("Failed to parse timezone from config")?;
 
-    let now = Local::now();
-    let now_in_tz = tz
-        .from_local_datetime(&now.naive_local())
-        .single()
-        .context("Failed to convert current time to configured timezone")?;
+    let now_in_tz = Local::now().with_timezone(&tz);
 
     // Get start of today at midnight in the configured timezone
     let today_midnight = tz
@@ -217,11 +213,7 @@ fn get_day_boundaries(day_offset: i32, rollover_hour: i64) -> Result<(i64, i64, 
         .parse()
         .context("Failed to parse timezone from config")?;
 
-    let now = Local::now();
-    let now_in_tz = tz
-        .from_local_datetime(&now.naive_local())
-        .single()
-        .context("Failed to convert current time to configured timezone")?;
+    let now_in_tz = Local::now().with_timezone(&tz);
 
     // Calculate the target date (today - day_offset)
     let target_date = now_in_tz - Duration::days(day_offset as i64);
@@ -262,11 +254,7 @@ fn get_week_boundaries(week_offset: i32, rollover_hour: i64) -> Result<(i64, i64
         .parse()
         .context("Failed to parse timezone from config")?;
 
-    let now = Local::now();
-    let now_in_tz = tz
-        .from_local_datetime(&now.naive_local())
-        .single()
-        .context("Failed to convert current time to configured timezone")?;
+    let now_in_tz = Local::now().with_timezone(&tz);
 
     // Calculate days since last Sunday (0 if today is Sunday)
     let days_since_sunday = now_in_tz.weekday().num_days_from_sunday();
