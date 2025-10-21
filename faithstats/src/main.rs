@@ -46,7 +46,13 @@ fn run_daily_command() {
         process::exit(1);
     });
 
-    match get_faith_daily_stats(&anki_db, &koreader_db) {
+    let proseuche_db = std::env::var("PROSEUCHE_DATABASE_PATH").unwrap_or_else(|_| {
+        eprintln!("Error: PROSEUCHE_DATABASE_PATH environment variable is required");
+        eprintln!("Set it in a .env file or export it in your shell");
+        process::exit(1);
+    });
+
+    match get_faith_daily_stats(&anki_db, &koreader_db, &proseuche_db) {
         Ok(stats) => {
             println!("\n=== FAITH STATS - LAST 30 DAYS ===\n");
 

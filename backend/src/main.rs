@@ -27,6 +27,7 @@ use utoipa_swagger_ui::SwaggerUi;
 struct AppConfig {
     anki_db_path: String,
     koreader_db_path: String,
+    proseuche_db_path: String,
 }
 
 /// OpenAPI documentation structure
@@ -94,6 +95,11 @@ async fn main() {
         std::process::exit(1);
     });
 
+    let proseuche_db_path = env::var("PROSEUCHE_DATABASE_PATH").unwrap_or_else(|_| {
+        eprintln!("Error: PROSEUCHE_DATABASE_PATH environment variable is required");
+        std::process::exit(1);
+    });
+
     let api_key = env::var("API_KEY").unwrap_or_else(|_| {
         eprintln!("Error: API_KEY environment variable is required");
         std::process::exit(1);
@@ -113,14 +119,24 @@ async fn main() {
         std::process::exit(1);
     }
 
+    if !std::path::Path::new(&proseuche_db_path).exists() {
+        eprintln!(
+            "Error: Proseuche database file not found at: {}",
+            proseuche_db_path
+        );
+        std::process::exit(1);
+    }
+
     let config = AppConfig {
         anki_db_path: anki_db_path.clone(),
         koreader_db_path: koreader_db_path.clone(),
+        proseuche_db_path: proseuche_db_path.clone(),
     };
 
     println!("Starting life stats API server...");
     println!("Anki Database: {}", anki_db_path);
     println!("KOReader Database: {}", koreader_db_path);
+    println!("Proseuche Database: {}", proseuche_db_path);
 
     // Build the router with routes
     let app = Router::new()
@@ -230,7 +246,7 @@ async fn get_books_stats(
 async fn get_faith_today_stats_endpoint(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<FaithTodayStats>, AppError> {
-    let stats = get_faith_today_stats(&config.anki_db_path, &config.koreader_db_path)?;
+    let stats = get_faith_today_stats(&config.anki_db_path, &config.koreader_db_path, &config.proseuche_db_path)?;
     Ok(Json(stats))
 }
 
@@ -251,7 +267,7 @@ async fn get_faith_today_stats_endpoint(
 async fn get_faith_daily_stats_endpoint(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<FaithDailyStats>, AppError> {
-    let stats = get_faith_daily_stats(&config.anki_db_path, &config.koreader_db_path)?;
+    let stats = get_faith_daily_stats(&config.anki_db_path, &config.koreader_db_path, &config.proseuche_db_path)?;
     Ok(Json(stats))
 }
 
@@ -272,7 +288,7 @@ async fn get_faith_daily_stats_endpoint(
 async fn get_faith_weekly_stats_endpoint(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<FaithWeeklyStats>, AppError> {
-    let stats = get_faith_weekly_stats(&config.anki_db_path, &config.koreader_db_path)?;
+    let stats = get_faith_weekly_stats(&config.anki_db_path, &config.koreader_db_path, &config.proseuche_db_path)?;
     Ok(Json(stats))
 }
 
