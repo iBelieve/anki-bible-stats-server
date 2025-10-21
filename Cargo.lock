@@ -1358,6 +1358,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "chrono-tz",
+ "rusqlite",
 ]
 
 [[package]]

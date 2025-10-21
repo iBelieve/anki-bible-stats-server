@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OpenFlags};
-use statsutils::get_day_boundaries;
+use statsutils::{register_date_functions, DatePeriod};
+use std::collections::HashMap;
 
 use crate::models::DayStats;
 
@@ -25,6 +26,9 @@ pub fn open_database(path: &str) -> Result<Connection> {
     )
     .context("Failed to open KOReader statistics database in read-only mode")?;
 
+    // Register date functions from statsutils
+    register_date_functions(&conn)?;
+
     Ok(conn)
 }
 
@@ -36,36 +40,35 @@ pub fn open_database(path: &str) -> Result<Connection> {
 /// # Returns
 /// Vector of DayStats with date and minutes for each of the last 30 days
 pub fn get_last_30_days_stats(conn: &Connection) -> Result<Vec<DayStats>> {
-    let mut results = Vec::new();
+    // Get the period data for the last 30 days
+    let period = DatePeriod::last_30_days()?;
 
-    // Query each day individually (from oldest to newest)
-    for day_offset in (0..30).rev() {
-        let (day_start_ms, day_end_ms, date_str) = get_day_boundaries(day_offset)?;
+    // Convert milliseconds to seconds for KOReader database (uses Unix seconds)
+    let start_sec = period.start_ms / 1000;
+    let end_sec = period.end_ms / 1000;
 
-        // Convert milliseconds to seconds for KOReader database (uses Unix seconds)
-        let day_start_sec = day_start_ms / 1000;
-        let day_end_sec = day_end_ms / 1000;
+    // Query reading time grouped by date
+    let query = r#"
+        SELECT date_str_from_sec(psd.start_time) as date, SUM(psd.duration) as total_seconds
+        FROM page_stat_data psd
+        JOIN book b ON b.id = psd.id_book
+        WHERE (b.title LIKE '%Bible%' OR b.title LIKE 'Treasury of Daily Prayer%')
+            AND psd.start_time >= ?1
+            AND psd.start_time < ?2
+        GROUP BY date_str_from_sec(psd.start_time)
+    "#;
 
-        // Query reading time for books matching Bible or Treasury of Daily Prayer
-        let query = r#"
-            SELECT COALESCE(SUM(psd.duration), 0) as total_seconds
-            FROM page_stat_data psd
-            JOIN book b ON b.id = psd.id_book
-            WHERE (b.title LIKE '%Bible%' OR b.title LIKE 'Treasury of Daily Prayer%')
-                AND psd.start_time >= ?1
-                AND psd.start_time < ?2
-        "#;
+    let mut stmt = conn.prepare(query)?;
+    let reading_results = stmt
+        .query_map([start_sec, end_sec], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?
+        .collect::<Result<HashMap<String, i64>, _>>()?;
 
-        let total_seconds: i64 =
-            conn.query_row(query, [day_start_sec, day_end_sec], |row| row.get(0))?;
-
-        let minutes = total_seconds as f64 / 60.0;
-
-        results.push(DayStats {
-            date: date_str,
-            minutes,
-        });
-    }
+    let results = period.build_results(reading_results, |date, total_seconds| DayStats {
+        date,
+        minutes: total_seconds as f64 / 60.0,
+    });
 
     Ok(results)
 }

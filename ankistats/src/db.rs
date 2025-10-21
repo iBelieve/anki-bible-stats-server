@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OpenFlags};
-use statsutils::{get_day_boundaries, get_today_start_ms, get_week_boundaries};
+use statsutils::{get_today_start_ms, register_date_functions, DatePeriod};
 use std::collections::HashMap;
 
 use crate::book_name_parser;
@@ -30,6 +30,9 @@ pub fn open_database(path: &str) -> Result<Connection> {
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .context("Failed to open Anki database in read-only mode")?;
+
+    // Register date functions from statsutils
+    register_date_functions(&conn)?;
 
     // Register custom SQLite function for counting verses in a reference
     conn.create_scalar_function(
@@ -172,60 +175,69 @@ pub fn get_last_30_days_stats(conn: &Connection) -> Result<Vec<DayStats>> {
     let deck_id = get_deck_id(conn)?;
     let model_id = get_model_id(conn)?;
 
-    let mut results = Vec::new();
+    // Get the period data for the last 30 days
+    let period = DatePeriod::last_30_days()?;
+
+    // Query 1: Study time grouped by date
+    let time_query = r#"
+        SELECT date_str_from_ms(r.id) as date, SUM(r.time) as total_ms
+        FROM revlog r
+        JOIN cards c ON c.id = r.cid
+        WHERE c.did = ?1 AND r.id >= ?2 AND r.id < ?3
+        GROUP BY date_str_from_ms(r.id)
+    "#;
+
+    let mut time_stmt = conn.prepare(time_query)?;
+    let time_results = time_stmt
+        .query_map([deck_id, period.start_ms, period.end_ms], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?
+        .collect::<Result<HashMap<String, i64>, _>>()?;
+
+    // Query 2: Progress (maturation and loss) grouped by date
+    let progress_query = format!(
+        r#"
+        SELECT
+            date_str_from_ms(r.id) as date,
+            COUNT(CASE WHEN r.lastIvl < 21 AND r.ivl >= 21 THEN 1 END) as matured,
+            COUNT(CASE WHEN r.lastIvl >= 21 AND r.ivl < 21 THEN 1 END) as lost
+        FROM revlog r
+        JOIN cards c ON c.id = r.cid
+        JOIN notes n ON n.id = c.nid
+        WHERE c.did = ?1 AND n.mid = ?2 AND c.ord = 0
+            AND c.queue != {QUEUE_TYPE_SUSPENDED}
+            AND r.id >= ?3 AND r.id < ?4
+        GROUP BY date_str_from_ms(r.id)
+        "#
+    );
+
+    let mut progress_stmt = conn.prepare(&progress_query)?;
+    let progress_results = progress_stmt
+        .query_map([deck_id, model_id, period.start_ms, period.end_ms], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                (row.get::<_, i64>(1)?, row.get::<_, i64>(2)?),
+            ))
+        })?
+        .collect::<Result<HashMap<String, (i64, i64)>, _>>()?;
+
     let mut cumulative_passages = 0i64;
 
-    // Query each day individually (from oldest to newest)
-    for day_offset in (0..30).rev() {
-        let (day_start_ms, day_end_ms, date_str) = get_day_boundaries(day_offset)?;
+    let results = period.build_results_2(
+        time_results,
+        progress_results,
+        |date, total_ms, (matured_passages, lost_passages)| {
+            cumulative_passages += matured_passages - lost_passages;
 
-        // Query study time
-        let time_query = r#"
-            SELECT COALESCE(SUM(r.time), 0) as total_ms
-            FROM revlog r
-            JOIN cards c ON c.id = r.cid
-            WHERE c.did = ?1 AND r.id >= ?2 AND r.id < ?3
-        "#;
-
-        let total_ms: i64 =
-            conn.query_row(time_query, [deck_id, day_start_ms, day_end_ms], |row| {
-                row.get(0)
-            })?;
-
-        let minutes = total_ms as f64 / 60000.0;
-
-        // Query progress (maturation and loss)
-        let progress_query = format!(
-            r#"
-            SELECT
-                COUNT(CASE WHEN r.lastIvl < 21 AND r.ivl >= 21 THEN 1 END) as matured,
-                COUNT(CASE WHEN r.lastIvl >= 21 AND r.ivl < 21 THEN 1 END) as lost
-            FROM revlog r
-            JOIN cards c ON c.id = r.cid
-            JOIN notes n ON n.id = c.nid
-            WHERE c.did = ?1 AND n.mid = ?2 AND c.ord = 0
-                AND c.queue != {QUEUE_TYPE_SUSPENDED}
-                AND r.id >= ?3 AND r.id < ?4
-            "#
-        );
-
-        let (matured_passages, lost_passages): (i64, i64) = conn.query_row(
-            &progress_query,
-            [deck_id, model_id, day_start_ms, day_end_ms],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )?;
-
-        // Update cumulative progress
-        cumulative_passages += matured_passages - lost_passages;
-
-        results.push(DayStats {
-            date: date_str,
-            minutes,
-            matured_passages,
-            lost_passages,
-            cumulative_passages,
-        });
-    }
+            DayStats {
+                date,
+                minutes: total_ms as f64 / 60_000.0,
+                matured_passages,
+                lost_passages,
+                cumulative_passages,
+            }
+        },
+    );
 
     Ok(results)
 }
@@ -235,60 +247,69 @@ pub fn get_last_12_weeks_stats(conn: &Connection) -> Result<Vec<WeekStats>> {
     let deck_id = get_deck_id(conn)?;
     let model_id = get_model_id(conn)?;
 
-    let mut results = Vec::new();
-    let mut cumulative_passages = 0i64;
+    // Get the period data for the last 12 weeks
+    let period = DatePeriod::last_12_weeks()?;
 
-    // Query each week individually (from oldest to newest)
-    for week_offset in (0..12).rev() {
-        let (week_start_ms, week_end_ms, week_start_str) = get_week_boundaries(week_offset)?;
+    // Query 1: Study time grouped by week
+    let time_query = r#"
+        SELECT week_str_from_ms(r.id) as week, SUM(r.time) as total_ms
+        FROM revlog r
+        JOIN cards c ON c.id = r.cid
+        WHERE c.did = ?1 AND r.id >= ?2 AND r.id < ?3
+        GROUP BY week_str_from_ms(r.id)
+    "#;
 
-        // Query study time
-        let time_query = r#"
-            SELECT COALESCE(SUM(r.time), 0) as total_ms
-            FROM revlog r
-            JOIN cards c ON c.id = r.cid
-            WHERE c.did = ?1 AND r.id >= ?2 AND r.id < ?3
-        "#;
+    let mut time_stmt = conn.prepare(time_query)?;
+    let time_results = time_stmt
+        .query_map([deck_id, period.start_ms, period.end_ms], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?
+        .collect::<Result<HashMap<String, i64>, _>>()?;
 
-        let total_ms: i64 =
-            conn.query_row(time_query, [deck_id, week_start_ms, week_end_ms], |row| {
-                row.get(0)
-            })?;
+    // Query 2: Progress (maturation and loss) grouped by week
+    let progress_query = format!(
+        r#"
+        SELECT
+            week_str_from_ms(r.id) as week,
+            COUNT(CASE WHEN r.lastIvl < 21 AND r.ivl >= 21 THEN 1 END) as matured,
+            COUNT(CASE WHEN r.lastIvl >= 21 AND r.ivl < 21 THEN 1 END) as lost
+        FROM revlog r
+        JOIN cards c ON c.id = r.cid
+        JOIN notes n ON n.id = c.nid
+        WHERE c.did = ?1 AND n.mid = ?2 AND c.ord = 0
+            AND c.queue != {QUEUE_TYPE_SUSPENDED}
+            AND r.id >= ?3 AND r.id < ?4
+        GROUP BY week_str_from_ms(r.id)
+        "#
+    );
 
-        let minutes = total_ms as f64 / 60000.0;
+    let mut progress_stmt = conn.prepare(&progress_query)?;
+    let progress_results = progress_stmt
+        .query_map([deck_id, model_id, period.start_ms, period.end_ms], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                (row.get::<_, i64>(1)?, row.get::<_, i64>(2)?),
+            ))
+        })?
+        .collect::<Result<HashMap<String, (i64, i64)>, _>>()?;
 
-        // Query progress (maturation and loss)
-        let progress_query = format!(
-            r#"
-            SELECT
-                COUNT(CASE WHEN r.lastIvl < 21 AND r.ivl >= 21 THEN 1 END) as matured,
-                COUNT(CASE WHEN r.lastIvl >= 21 AND r.ivl < 21 THEN 1 END) as lost
-            FROM revlog r
-            JOIN cards c ON c.id = r.cid
-            JOIN notes n ON n.id = c.nid
-            WHERE c.did = ?1 AND n.mid = ?2 AND c.ord = 0
-                AND c.queue != {QUEUE_TYPE_SUSPENDED}
-                AND r.id >= ?3 AND r.id < ?4
-            "#
-        );
+    let mut cumulative_passages = 0;
 
-        let (matured_passages, lost_passages): (i64, i64) = conn.query_row(
-            &progress_query,
-            [deck_id, model_id, week_start_ms, week_end_ms],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )?;
+    let results = period.build_results_2(
+        time_results,
+        progress_results,
+        |date, total_ms, (matured_passages, lost_passages)| {
+            cumulative_passages += matured_passages - lost_passages;
 
-        // Update cumulative progress
-        cumulative_passages += matured_passages - lost_passages;
-
-        results.push(WeekStats {
-            week_start: week_start_str,
-            minutes,
-            matured_passages,
-            lost_passages,
-            cumulative_passages,
-        });
-    }
+            WeekStats {
+                week_start: date,
+                minutes: total_ms as f64 / 60_000.0,
+                matured_passages,
+                lost_passages,
+                cumulative_passages,
+            }
+        },
+    );
 
     Ok(results)
 }
