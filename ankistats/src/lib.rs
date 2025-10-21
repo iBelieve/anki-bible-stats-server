@@ -1,6 +1,5 @@
 pub mod bible;
 pub mod book_name_parser;
-pub mod config;
 pub mod db;
 pub mod models;
 pub mod verse_parser;

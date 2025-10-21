@@ -1,11 +1,9 @@
 use anyhow::{Context, Result};
-use chrono::{Datelike, Duration, Local, TimeZone};
-use chrono_tz::Tz;
 use rusqlite::{Connection, OpenFlags};
 use std::collections::HashMap;
+use statsutils::{get_day_boundaries, get_today_start_ms, get_week_boundaries};
 
 use crate::book_name_parser;
-use crate::config::TIMEZONE;
 use crate::models::{BookStats, DayStats, WeekStats};
 use crate::verse_parser;
 
@@ -150,152 +148,9 @@ pub fn get_all_books_stats(
     Ok(books_map)
 }
 
-/// Gets a config value from the Anki database config table
-/// Values are stored as UTF-8 strings in blobs
-fn get_config_value(conn: &Connection, key: &str) -> Result<String> {
-    let blob: Vec<u8> = conn
-        .query_row("SELECT val FROM config WHERE key = ?1", [key], |row| {
-            row.get(0)
-        })
-        .context(format!("Failed to read config key '{}' from database", key))?;
-
-    // Convert blob to UTF-8 string
-    let s = String::from_utf8(blob)
-        .context(format!("Config value for '{}' is not valid UTF-8", key))?;
-
-    Ok(s)
-}
-
-/// Gets the rollover hour from the Anki database configuration
-pub fn get_rollover_hour(conn: &Connection) -> Result<i64> {
-    let s = get_config_value(conn, "rollover")?;
-
-    // Parse as integer
-    let hour = s
-        .parse::<i64>()
-        .context(format!("Failed to parse rollover value '{}' as integer", s))?;
-
-    Ok(hour)
-}
-
-/// Helper function to calculate the start of today in epoch milliseconds
-/// accounting for timezone and rollover hour
-fn get_today_start_ms(rollover_hour: i64) -> Result<i64> {
-    let tz: Tz = TIMEZONE
-        .parse()
-        .context("Failed to parse timezone from config")?;
-
-    let now_in_tz = Local::now().with_timezone(&tz);
-
-    // Get start of today at midnight in the configured timezone
-    let today_midnight = tz
-        .with_ymd_and_hms(
-            now_in_tz.year(),
-            now_in_tz.month(),
-            now_in_tz.day(),
-            0,
-            0,
-            0,
-        )
-        .single()
-        .context("Failed to create today's midnight")?;
-
-    // Add rollover hours
-    let today_start = today_midnight + Duration::hours(rollover_hour);
-
-    // Convert to epoch milliseconds
-    Ok(today_start.timestamp_millis())
-}
-
-/// Helper function to calculate day boundaries for a specific day offset
-fn get_day_boundaries(day_offset: i32, rollover_hour: i64) -> Result<(i64, i64, String)> {
-    let tz: Tz = TIMEZONE
-        .parse()
-        .context("Failed to parse timezone from config")?;
-
-    let now_in_tz = Local::now().with_timezone(&tz);
-
-    // Calculate the target date (today - day_offset)
-    let target_date = now_in_tz - Duration::days(day_offset as i64);
-
-    // Get start of that day at midnight
-    let day_midnight = tz
-        .with_ymd_and_hms(
-            target_date.year(),
-            target_date.month(),
-            target_date.day(),
-            0,
-            0,
-            0,
-        )
-        .single()
-        .context("Failed to create target day's midnight")?;
-
-    // Add rollover hours for day start
-    let day_start = day_midnight + Duration::hours(rollover_hour);
-
-    // Next day start
-    let next_day_start = day_start + Duration::days(1);
-
-    // Format date for output
-    let date_str = target_date.format("%Y-%m-%d").to_string();
-
-    Ok((
-        day_start.timestamp_millis(),
-        next_day_start.timestamp_millis(),
-        date_str,
-    ))
-}
-
-/// Helper function to calculate week boundaries for a specific week offset
-/// Weeks start on Sunday and use the same rollover hour as daily stats
-fn get_week_boundaries(week_offset: i32, rollover_hour: i64) -> Result<(i64, i64, String)> {
-    let tz: Tz = TIMEZONE
-        .parse()
-        .context("Failed to parse timezone from config")?;
-
-    let now_in_tz = Local::now().with_timezone(&tz);
-
-    // Calculate days since last Sunday (0 if today is Sunday)
-    let days_since_sunday = now_in_tz.weekday().num_days_from_sunday();
-
-    // Calculate the target Sunday (go back to most recent Sunday, then subtract week_offset weeks)
-    let target_date =
-        now_in_tz - Duration::days(days_since_sunday as i64) - Duration::weeks(week_offset as i64);
-
-    // Get start of that Sunday at midnight
-    let week_midnight = tz
-        .with_ymd_and_hms(
-            target_date.year(),
-            target_date.month(),
-            target_date.day(),
-            0,
-            0,
-            0,
-        )
-        .single()
-        .context("Failed to create week's midnight")?;
-
-    // Add rollover hours for week start
-    let week_start = week_midnight + Duration::hours(rollover_hour);
-
-    // Next week start (7 days later)
-    let next_week_start = week_start + Duration::weeks(1);
-
-    // Format week start date for output
-    let week_start_str = target_date.format("%Y-%m-%d").to_string();
-
-    Ok((
-        week_start.timestamp_millis(),
-        next_week_start.timestamp_millis(),
-        week_start_str,
-    ))
-}
-
 /// Gets the total study time for today in minutes
 pub fn get_today_study_minutes(conn: &Connection) -> Result<f64> {
-    let rollover_hour = get_rollover_hour(conn)?;
-    let today_start_ms = get_today_start_ms(rollover_hour)?;
+    let today_start_ms = get_today_start_ms()?;
 
     let deck_id = get_deck_id(conn)?;
 
@@ -314,7 +169,6 @@ pub fn get_today_study_minutes(conn: &Connection) -> Result<f64> {
 
 /// Gets study time and learning progress for each of the last 30 days
 pub fn get_last_30_days_stats(conn: &Connection) -> Result<Vec<DayStats>> {
-    let rollover_hour = get_rollover_hour(conn)?;
     let deck_id = get_deck_id(conn)?;
     let model_id = get_model_id(conn)?;
 
@@ -323,7 +177,7 @@ pub fn get_last_30_days_stats(conn: &Connection) -> Result<Vec<DayStats>> {
 
     // Query each day individually (from oldest to newest)
     for day_offset in (0..30).rev() {
-        let (day_start_ms, day_end_ms, date_str) = get_day_boundaries(day_offset, rollover_hour)?;
+        let (day_start_ms, day_end_ms, date_str) = get_day_boundaries(day_offset)?;
 
         // Query study time
         let time_query = r#"
@@ -378,7 +232,6 @@ pub fn get_last_30_days_stats(conn: &Connection) -> Result<Vec<DayStats>> {
 
 /// Gets study time and learning progress for each of the last 12 weeks
 pub fn get_last_12_weeks_stats(conn: &Connection) -> Result<Vec<WeekStats>> {
-    let rollover_hour = get_rollover_hour(conn)?;
     let deck_id = get_deck_id(conn)?;
     let model_id = get_model_id(conn)?;
 
@@ -388,7 +241,7 @@ pub fn get_last_12_weeks_stats(conn: &Connection) -> Result<Vec<WeekStats>> {
     // Query each week individually (from oldest to newest)
     for week_offset in (0..12).rev() {
         let (week_start_ms, week_end_ms, week_start_str) =
-            get_week_boundaries(week_offset, rollover_hour)?;
+            get_week_boundaries(week_offset)?;
 
         // Query study time
         let time_query = r#"
