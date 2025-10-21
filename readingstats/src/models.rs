@@ -1,5 +1,11 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use utoipa::ToSchema;
 
-// This module will contain data structures for reading statistics
-// Models will be added here as needed for querying the KOReader database
+/// Reading time statistics for a single day
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct DayStats {
+    /// Date in YYYY-MM-DD format
+    pub date: String,
+    /// Reading time in minutes
+    pub minutes: f64,
+}

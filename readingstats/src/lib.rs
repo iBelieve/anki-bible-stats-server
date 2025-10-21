@@ -1,11 +1,27 @@
-pub mod config;
 pub mod db;
 pub mod models;
 
 use anyhow::Result;
+use crate::models::DayStats;
 
-// Public API functions will be added here as needed
-// For example:
-// - get_reading_stats(db_path: &str) -> Result<ReadingStats>
-// - get_today_reading_time(db_path: &str) -> Result<f64>
-// - get_book_list(db_path: &str) -> Result<Vec<BookInfo>>
+/// Gets reading time for each of the last 30 days for Bible and Treasury of Daily Prayer books
+///
+/// # Arguments
+/// * `db_path` - Path to the KOReader statistics.sqlite3 database file
+///
+/// # Returns
+/// Vector of DayStats with date and minutes for each of the last 30 days
+///
+/// # Example
+/// ```ignore
+/// use readingstats::get_last_30_days_stats;
+///
+/// let daily_stats = get_last_30_days_stats("/path/to/statistics.sqlite3")?;
+/// for day in daily_stats {
+///     println!("{}: {:.2} minutes", day.date, day.minutes);
+/// }
+/// ```
+pub fn get_last_30_days_stats(db_path: &str) -> Result<Vec<DayStats>> {
+    let conn = db::open_database(db_path)?;
+    db::get_last_30_days_stats(&conn)
+}
