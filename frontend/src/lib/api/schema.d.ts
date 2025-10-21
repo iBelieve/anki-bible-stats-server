@@ -21,57 +21,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/anki/daily": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get daily study time for last 30 days */
-        get: operations["get_daily_stats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/anki/today": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get today's study time */
-        get: operations["get_today_stats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/anki/weekly": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get weekly study time for last 12 weeks */
-        get: operations["get_weekly_stats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/faith/daily": {
         parameters: {
             query?: never;
@@ -81,6 +30,40 @@ export interface paths {
         };
         /** Get unified faith statistics for last 30 days */
         get: operations["get_faith_daily_stats_endpoint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/faith/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get today's unified faith statistics */
+        get: operations["get_faith_today_stats_endpoint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/faith/weekly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get unified faith statistics for last 12 weeks */
+        get: operations["get_faith_weekly_stats_endpoint"];
         put?: never;
         post?: never;
         delete?: never;
@@ -155,42 +138,6 @@ export interface components {
             young_passages: number;
             /** Format: int64 */
             young_verses: number;
-        };
-        /** @description Daily study time response with summary */
-        DailyStats: {
-            days: components["schemas"]["DayStats"][];
-            summary: components["schemas"]["DailySummary"];
-        };
-        /** @description Summary statistics for daily study time and progress */
-        DailySummary: {
-            /** Format: double */
-            average_hours_per_day: number;
-            /** Format: double */
-            average_minutes_per_day: number;
-            days_studied: number;
-            /** Format: int64 */
-            net_progress: number;
-            total_days: number;
-            /** Format: double */
-            total_hours: number;
-            /** Format: int64 */
-            total_lost_passages: number;
-            /** Format: int64 */
-            total_matured_passages: number;
-            /** Format: double */
-            total_minutes: number;
-        };
-        /** @description Study time and progress statistics for a single day */
-        DayStats: {
-            /** Format: int64 */
-            cumulative_passages: number;
-            date: string;
-            /** Format: int64 */
-            lost_passages: number;
-            /** Format: int64 */
-            matured_passages: number;
-            /** Format: double */
-            minutes: number;
         };
         /** @description Error response */
         ErrorResponse: {
@@ -274,53 +221,116 @@ export interface components {
              */
             reading_minutes: number;
         };
+        /** @description Combined faith statistics for today */
+        FaithTodayStats: {
+            /**
+             * Format: double
+             * @description Anki study time in minutes
+             */
+            anki_minutes: number;
+            /**
+             * Format: double
+             * @description Prayer time in minutes
+             */
+            prayer_minutes: number;
+            /**
+             * Format: double
+             * @description Bible reading time in minutes
+             */
+            reading_minutes: number;
+            /**
+             * Format: double
+             * @description Total hours across all activities
+             */
+            total_hours: number;
+            /**
+             * Format: double
+             * @description Total minutes across all activities
+             */
+            total_minutes: number;
+        };
+        /** @description Combined faith statistics for a single week */
+        FaithWeekStats: {
+            /**
+             * Format: int64
+             * @description Cumulative count of mature passages at end of week
+             */
+            anki_cumulative_passages: number;
+            /**
+             * Format: int64
+             * @description Number of passages that were lost during this week
+             */
+            anki_lost_passages: number;
+            /**
+             * Format: int64
+             * @description Number of passages that matured during this week
+             */
+            anki_matured_passages: number;
+            /**
+             * Format: double
+             * @description Anki study time in minutes
+             */
+            anki_minutes: number;
+            /**
+             * Format: double
+             * @description Prayer time in minutes
+             */
+            prayer_minutes: number;
+            /**
+             * Format: double
+             * @description Bible reading time in minutes
+             */
+            reading_minutes: number;
+            /** @description Week start date in YYYY-MM-DD format */
+            week_start: string;
+        };
+        /** @description Faith statistics for multiple weeks with summary */
+        FaithWeeklyStats: {
+            summary: components["schemas"]["FaithWeeklySummary"];
+            weeks: components["schemas"]["FaithWeekStats"][];
+        };
+        /** @description Summary statistics for faith activities over a weekly period */
+        FaithWeeklySummary: {
+            /** Format: double */
+            anki_average_minutes_per_week: number;
+            /** Format: int64 */
+            anki_net_progress: number;
+            /** Format: double */
+            anki_total_hours: number;
+            /** Format: int64 */
+            anki_total_lost_passages: number;
+            /** Format: int64 */
+            anki_total_matured_passages: number;
+            /** Format: double */
+            anki_total_minutes: number;
+            anki_weeks_studied: number;
+            /** Format: double */
+            average_minutes_per_week: number;
+            /** Format: double */
+            prayer_average_minutes_per_week: number;
+            /** Format: double */
+            prayer_total_hours: number;
+            /** Format: double */
+            prayer_total_minutes: number;
+            prayer_weeks_studied: number;
+            /** Format: double */
+            reading_average_minutes_per_week: number;
+            /** Format: double */
+            reading_total_hours: number;
+            /** Format: double */
+            reading_total_minutes: number;
+            reading_weeks_studied: number;
+            /** Format: double */
+            total_hours: number;
+            /** Format: double */
+            total_minutes: number;
+            total_weeks: number;
+            weeks_with_any_activity: number;
+        };
         /** @description Health check response */
         HealthCheck: {
             service: string;
             status: string;
-        };
-        /** @description Today's study time response */
-        TodayStats: {
-            /** Format: double */
-            hours: number;
-            /** Format: double */
-            minutes: number;
-        };
-        /** @description Study time and progress statistics for a single week */
-        WeekStats: {
-            /** Format: int64 */
-            cumulative_passages: number;
-            /** Format: int64 */
-            lost_passages: number;
-            /** Format: int64 */
-            matured_passages: number;
-            /** Format: double */
-            minutes: number;
-            week_start: string;
-        };
-        /** @description Weekly study time response with summary */
-        WeeklyStats: {
-            summary: components["schemas"]["WeeklySummary"];
-            weeks: components["schemas"]["WeekStats"][];
-        };
-        /** @description Summary statistics for weekly study time and progress */
-        WeeklySummary: {
-            /** Format: double */
-            average_hours_per_week: number;
-            /** Format: double */
-            average_minutes_per_week: number;
-            /** Format: int64 */
-            net_progress: number;
-            /** Format: double */
-            total_hours: number;
-            /** Format: int64 */
-            total_lost_passages: number;
-            /** Format: int64 */
-            total_matured_passages: number;
-            /** Format: double */
-            total_minutes: number;
-            total_weeks: number;
-            weeks_studied: number;
         };
     };
     responses: never;
@@ -367,114 +377,6 @@ export interface operations {
             };
         };
     };
-    get_daily_stats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Daily study time for last 30 days retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DailyStats"];
-                };
-            };
-            /** @description Unauthorized - invalid or missing API key */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    get_today_stats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Today's study time retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TodayStats"];
-                };
-            };
-            /** @description Unauthorized - invalid or missing API key */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    get_weekly_stats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Weekly study time for last 12 weeks retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WeeklyStats"];
-                };
-            };
-            /** @description Unauthorized - invalid or missing API key */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
     get_faith_daily_stats_endpoint: {
         parameters: {
             query?: never;
@@ -491,6 +393,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FaithDailyStats"];
+                };
+            };
+            /** @description Unauthorized - invalid or missing API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_faith_today_stats_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Today's unified faith statistics retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaithTodayStats"];
+                };
+            };
+            /** @description Unauthorized - invalid or missing API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_faith_weekly_stats_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unified faith statistics for last 12 weeks retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaithWeeklyStats"];
                 };
             };
             /** @description Unauthorized - invalid or missing API key */

@@ -1,9 +1,6 @@
 use ankistats::{
-    get_bible_stats, get_last_12_weeks_stats, get_last_30_days_stats, get_today_study_time,
-    models::{
-        AggregateStats, BibleStats, BookStats, DailyStats, DailySummary, DayStats, ErrorResponse,
-        HealthCheck, TodayStats, WeekStats, WeeklyStats, WeeklySummary,
-    },
+    get_bible_stats,
+    models::{AggregateStats, BibleStats, BookStats, ErrorResponse, HealthCheck},
 };
 use axum::{
     Router,
@@ -14,8 +11,11 @@ use axum::{
     routing::get,
 };
 use faithstats::{
-    get_faith_daily_stats,
-    models::{FaithDailyStats, FaithDailySummary, FaithDayStats},
+    get_faith_daily_stats, get_faith_today_stats, get_faith_weekly_stats,
+    models::{
+        FaithDailyStats, FaithDailySummary, FaithDayStats, FaithTodayStats, FaithWeekStats,
+        FaithWeeklyStats, FaithWeeklySummary,
+    },
 };
 use std::env;
 use tower_http::cors::CorsLayer;
@@ -35,15 +35,14 @@ struct AppConfig {
     paths(
         health_check,
         get_books_stats,
-        get_today_stats,
-        get_daily_stats,
-        get_weekly_stats,
+        get_faith_today_stats_endpoint,
         get_faith_daily_stats_endpoint,
+        get_faith_weekly_stats_endpoint,
     ),
     components(
-        schemas(HealthCheck, BibleStats, TodayStats, DailyStats, WeeklyStats,
-                BookStats, AggregateStats, DayStats, DailySummary, WeekStats, WeeklySummary,
-                FaithDailyStats, FaithDailySummary, FaithDayStats, ErrorResponse)
+        schemas(HealthCheck, BibleStats, BookStats, AggregateStats, ErrorResponse,
+                FaithTodayStats, FaithDailyStats, FaithDailySummary, FaithDayStats,
+                FaithWeeklyStats, FaithWeeklySummary, FaithWeekStats)
     ),
     tags(
         (name = "health", description = "Health check endpoints"),
@@ -128,10 +127,9 @@ async fn main() {
         .merge(SwaggerUi::new("/swagger-ui").url("/openapi.json", ApiDoc::openapi()))
         .route("/health", get(health_check))
         .route("/api/anki/books", get(get_books_stats))
-        .route("/api/anki/today", get(get_today_stats))
-        .route("/api/anki/daily", get(get_daily_stats))
-        .route("/api/anki/weekly", get(get_weekly_stats))
+        .route("/api/faith/today", get(get_faith_today_stats_endpoint))
         .route("/api/faith/daily", get(get_faith_daily_stats_endpoint))
+        .route("/api/faith/weekly", get(get_faith_weekly_stats_endpoint))
         .layer(middleware::from_fn(move |req, next| {
             auth_middleware(req, next, api_key.clone())
         }))
@@ -215,67 +213,25 @@ async fn get_books_stats(
     Ok(Json(stats))
 }
 
-/// Get today's study time
+/// Get today's unified faith statistics
 #[utoipa::path(
     get,
-    path = "/api/anki/today",
+    path = "/api/faith/today",
     responses(
-        (status = 200, description = "Today's study time retrieved successfully", body = TodayStats),
+        (status = 200, description = "Today's unified faith statistics retrieved successfully", body = FaithTodayStats),
         (status = 401, description = "Unauthorized - invalid or missing API key"),
         (status = 500, description = "Internal server error", body = ErrorResponse)
     ),
     security(
         ("bearer_auth" = [])
     ),
-    tag = "anki"
+    tag = "faith"
 )]
-async fn get_today_stats(
+async fn get_faith_today_stats_endpoint(
     axum::extract::State(config): axum::extract::State<AppConfig>,
-) -> Result<Json<TodayStats>, AppError> {
-    let minutes = get_today_study_time(&config.anki_db_path)?;
-    Ok(Json(TodayStats::new(minutes)))
-}
-
-/// Get daily study time for last 30 days
-#[utoipa::path(
-    get,
-    path = "/api/anki/daily",
-    responses(
-        (status = 200, description = "Daily study time for last 30 days retrieved successfully", body = DailyStats),
-        (status = 401, description = "Unauthorized - invalid or missing API key"),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    security(
-        ("bearer_auth" = [])
-    ),
-    tag = "anki"
-)]
-async fn get_daily_stats(
-    axum::extract::State(config): axum::extract::State<AppConfig>,
-) -> Result<Json<DailyStats>, AppError> {
-    let daily_stats = get_last_30_days_stats(&config.anki_db_path)?;
-    Ok(Json(DailyStats::new(daily_stats)))
-}
-
-/// Get weekly study time for last 12 weeks
-#[utoipa::path(
-    get,
-    path = "/api/anki/weekly",
-    responses(
-        (status = 200, description = "Weekly study time for last 12 weeks retrieved successfully", body = WeeklyStats),
-        (status = 401, description = "Unauthorized - invalid or missing API key"),
-        (status = 500, description = "Internal server error", body = ErrorResponse)
-    ),
-    security(
-        ("bearer_auth" = [])
-    ),
-    tag = "anki"
-)]
-async fn get_weekly_stats(
-    axum::extract::State(config): axum::extract::State<AppConfig>,
-) -> Result<Json<WeeklyStats>, AppError> {
-    let weekly_stats = get_last_12_weeks_stats(&config.anki_db_path)?;
-    Ok(Json(WeeklyStats::new(weekly_stats)))
+) -> Result<Json<FaithTodayStats>, AppError> {
+    let stats = get_faith_today_stats(&config.anki_db_path, &config.koreader_db_path)?;
+    Ok(Json(stats))
 }
 
 /// Get unified faith statistics for last 30 days
@@ -296,6 +252,27 @@ async fn get_faith_daily_stats_endpoint(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<FaithDailyStats>, AppError> {
     let stats = get_faith_daily_stats(&config.anki_db_path, &config.koreader_db_path)?;
+    Ok(Json(stats))
+}
+
+/// Get unified faith statistics for last 12 weeks
+#[utoipa::path(
+    get,
+    path = "/api/faith/weekly",
+    responses(
+        (status = 200, description = "Unified faith statistics for last 12 weeks retrieved successfully", body = FaithWeeklyStats),
+        (status = 401, description = "Unauthorized - invalid or missing API key"),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    security(
+        ("bearer_auth" = [])
+    ),
+    tag = "faith"
+)]
+async fn get_faith_weekly_stats_endpoint(
+    axum::extract::State(config): axum::extract::State<AppConfig>,
+) -> Result<Json<FaithWeeklyStats>, AppError> {
+    let stats = get_faith_weekly_stats(&config.anki_db_path, &config.koreader_db_path)?;
     Ok(Json(stats))
 }
 
