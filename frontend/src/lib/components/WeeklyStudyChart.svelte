@@ -43,6 +43,17 @@
 				hoverBackgroundColor: chartColors.bar.hover.green,
 				stack: 'stack0'
 			},
+			// Middle stack: Prayer in purple
+			{
+				label: 'Prayer',
+				data: data.weeks.map((week) => week.prayer_minutes),
+				backgroundColor: chartColors.bar.background.purple,
+				borderColor: chartColors.bar.border.purple,
+				borderWidth: 1,
+				borderRadius: 4,
+				hoverBackgroundColor: chartColors.bar.hover.purple,
+				stack: 'stack0'
+			},
 			// Top stack: Anki (Memorization) in blue
 			{
 				label: 'Anki',
