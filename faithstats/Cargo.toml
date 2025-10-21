@@ -1,0 +1,21 @@
+[package]
+name = "faithstats"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+
+[[bin]]
+name = "faithstats"
+path = "src/main.rs"
+
+[dependencies]
+ankistats = { path = "../ankistats" }
+readingstats = { path = "../readingstats" }
+prayerstats = { path = "../prayerstats" }
+statsutils = { path = "../statsutils" }
+anyhow = "1.0.100"
+serde = { version = "1.0.228", features = ["derive"] }
+utoipa = "5.3.1"
+tabled = "0.20.0"
+clap = { version = "4.5.49", features = ["derive"] }
+dotenvy = "0.15.7"

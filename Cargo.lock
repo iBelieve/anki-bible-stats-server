@@ -187,6 +187,7 @@ dependencies = [
  "ankistats",
  "anyhow",
  "axum",
+ "faithstats",
  "serde",
  "serde_json",
  "tokio",
@@ -402,10 +403,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "dotenvy"
+version = "0.15.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+
+[[package]]
+name = "faithstats"
+version = "0.1.0"
+dependencies = [
+ "ankistats",
+ "anyhow",
+ "clap",
+ "dotenvy",
+ "prayerstats",
+ "readingstats",
+ "serde",
+ "statsutils",
+ "tabled",
+ "utoipa",
+]
 
 [[package]]
 name = "fallible-iterator"

@@ -19,7 +19,7 @@ today:
 	cargo run -p ankistats -- today ankistats/collection.anki2
 
 daily:
-	cargo run -p ankistats -- daily ankistats/collection.anki2
+	cargo run -p faithstats -- daily
 
 weekly:
 	cargo run -p ankistats -- weekly ankistats/collection.anki2

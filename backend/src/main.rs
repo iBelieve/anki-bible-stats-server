@@ -5,6 +5,10 @@ use ankistats::{
         HealthCheck, TodayStats, WeekStats, WeeklyStats, WeeklySummary,
     },
 };
+use faithstats::{
+    get_faith_daily_stats,
+    models::{FaithDailyStats, FaithDailySummary, FaithDayStats},
+};
 use axum::{
     Router,
     extract::Request,
@@ -18,6 +22,13 @@ use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+/// Application configuration holding database paths
+#[derive(Clone)]
+struct AppConfig {
+    anki_db_path: String,
+    koreader_db_path: String,
+}
+
 /// OpenAPI documentation structure
 #[derive(OpenApi)]
 #[openapi(
@@ -27,14 +38,17 @@ use utoipa_swagger_ui::SwaggerUi;
         get_today_stats,
         get_daily_stats,
         get_weekly_stats,
+        get_faith_daily_stats_endpoint,
     ),
     components(
         schemas(HealthCheck, BibleStats, TodayStats, DailyStats, WeeklyStats,
-                BookStats, AggregateStats, DayStats, DailySummary, WeekStats, WeeklySummary, ErrorResponse)
+                BookStats, AggregateStats, DayStats, DailySummary, WeekStats, WeeklySummary,
+                FaithDailyStats, FaithDailySummary, FaithDayStats, ErrorResponse)
     ),
     tags(
         (name = "health", description = "Health check endpoints"),
-        (name = "anki", description = "Anki Bible memorization statistics endpoints")
+        (name = "anki", description = "Anki Bible memorization statistics endpoints"),
+        (name = "faith", description = "Unified faith statistics endpoints combining multiple sources")
     ),
     info(
         title = "Life Stats API",
@@ -68,8 +82,13 @@ impl utoipa::Modify for SecurityAddon {
 #[tokio::main]
 async fn main() {
     // Get configuration from environment variables
-    let db_path = env::var("ANKI_DATABASE_PATH").unwrap_or_else(|_| {
+    let anki_db_path = env::var("ANKI_DATABASE_PATH").unwrap_or_else(|_| {
         eprintln!("Error: ANKI_DATABASE_PATH environment variable is required");
+        std::process::exit(1);
+    });
+
+    let koreader_db_path = env::var("KOREADER_DATABASE_PATH").unwrap_or_else(|_| {
+        eprintln!("Error: KOREADER_DATABASE_PATH environment variable is required");
         std::process::exit(1);
     });
 
@@ -78,14 +97,25 @@ async fn main() {
         std::process::exit(1);
     });
 
-    // Validate that the database path exists
-    if !std::path::Path::new(&db_path).exists() {
-        eprintln!("Error: Database file not found at: {}", db_path);
+    // Validate that the database paths exist
+    if !std::path::Path::new(&anki_db_path).exists() {
+        eprintln!("Error: Anki database file not found at: {}", anki_db_path);
         std::process::exit(1);
     }
 
+    if !std::path::Path::new(&koreader_db_path).exists() {
+        eprintln!("Error: KOReader database file not found at: {}", koreader_db_path);
+        std::process::exit(1);
+    }
+
+    let config = AppConfig {
+        anki_db_path: anki_db_path.clone(),
+        koreader_db_path: koreader_db_path.clone(),
+    };
+
     println!("Starting life stats API server...");
-    println!("Database: {}", db_path);
+    println!("Anki Database: {}", anki_db_path);
+    println!("KOReader Database: {}", koreader_db_path);
 
     // Build the router with routes
     let app = Router::new()
@@ -95,11 +125,12 @@ async fn main() {
         .route("/api/anki/today", get(get_today_stats))
         .route("/api/anki/daily", get(get_daily_stats))
         .route("/api/anki/weekly", get(get_weekly_stats))
+        .route("/api/faith/daily", get(get_faith_daily_stats_endpoint))
         .layer(middleware::from_fn(move |req, next| {
             auth_middleware(req, next, api_key.clone())
         }))
         .layer(CorsLayer::permissive())
-        .with_state(db_path);
+        .with_state(config);
 
     // Start the server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
@@ -172,9 +203,9 @@ async fn health_check() -> impl IntoResponse {
     tag = "anki"
 )]
 async fn get_books_stats(
-    axum::extract::State(db_path): axum::extract::State<String>,
+    axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<BibleStats>, AppError> {
-    let stats = get_bible_stats(&db_path)?;
+    let stats = get_bible_stats(&config.anki_db_path)?;
     Ok(Json(stats))
 }
 
@@ -193,9 +224,9 @@ async fn get_books_stats(
     tag = "anki"
 )]
 async fn get_today_stats(
-    axum::extract::State(db_path): axum::extract::State<String>,
+    axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<TodayStats>, AppError> {
-    let minutes = get_today_study_time(&db_path)?;
+    let minutes = get_today_study_time(&config.anki_db_path)?;
     Ok(Json(TodayStats::new(minutes)))
 }
 
@@ -214,9 +245,9 @@ async fn get_today_stats(
     tag = "anki"
 )]
 async fn get_daily_stats(
-    axum::extract::State(db_path): axum::extract::State<String>,
+    axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<DailyStats>, AppError> {
-    let daily_stats = get_last_30_days_stats(&db_path)?;
+    let daily_stats = get_last_30_days_stats(&config.anki_db_path)?;
     Ok(Json(DailyStats::new(daily_stats)))
 }
 
@@ -235,10 +266,31 @@ async fn get_daily_stats(
     tag = "anki"
 )]
 async fn get_weekly_stats(
-    axum::extract::State(db_path): axum::extract::State<String>,
+    axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<WeeklyStats>, AppError> {
-    let weekly_stats = get_last_12_weeks_stats(&db_path)?;
+    let weekly_stats = get_last_12_weeks_stats(&config.anki_db_path)?;
     Ok(Json(WeeklyStats::new(weekly_stats)))
+}
+
+/// Get unified faith statistics for last 30 days
+#[utoipa::path(
+    get,
+    path = "/api/faith/daily",
+    responses(
+        (status = 200, description = "Unified faith statistics for last 30 days retrieved successfully", body = FaithDailyStats),
+        (status = 401, description = "Unauthorized - invalid or missing API key"),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    security(
+        ("bearer_auth" = [])
+    ),
+    tag = "faith"
+)]
+async fn get_faith_daily_stats_endpoint(
+    axum::extract::State(config): axum::extract::State<AppConfig>,
+) -> Result<Json<FaithDailyStats>, AppError> {
+    let stats = get_faith_daily_stats(&config.anki_db_path, &config.koreader_db_path)?;
+    Ok(Json(stats))
 }
 
 /// Custom error type for API errors
