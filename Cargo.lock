@@ -187,6 +187,7 @@ dependencies = [
  "ankistats",
  "anyhow",
  "axum",
+ "dotenvy",
  "faithstats",
  "serde",
  "serde_json",

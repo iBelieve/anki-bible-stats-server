@@ -81,6 +81,9 @@ impl utoipa::Modify for SecurityAddon {
 
 #[tokio::main]
 async fn main() {
+    // Load environment variables from .env file if present
+    dotenvy::dotenv().ok();
+
     // Get configuration from environment variables
     let anki_db_path = env::var("ANKI_DATABASE_PATH").unwrap_or_else(|_| {
         eprintln!("Error: ANKI_DATABASE_PATH environment variable is required");

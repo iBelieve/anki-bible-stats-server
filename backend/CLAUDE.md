@@ -10,18 +10,34 @@ This is the backend web server crate that provides a REST API for the ankistats 
 
 ### Running the Server
 
-```bash
-# Set required environment variables
-export ANKI_DATABASE_PATH="/path/to/collection.anki2"
-export API_KEY="your-secure-api-key"
+The server requires environment variables for configuration. You can provide them in two ways:
 
-# Run in development
+**Option 1: Using a .env file (recommended)**
+
+```bash
+# Copy the example file and update with your values
+cp .env.example .env
+# Edit .env with your actual paths and API key
+
+# Run the server (it will automatically load .env)
 cargo run -p backend
 
 # Or from the backend directory
 cargo run
 
 # The server will start on http://0.0.0.0:3000
+```
+
+**Option 2: Export environment variables manually**
+
+```bash
+# Set required environment variables
+export ANKI_DATABASE_PATH="/path/to/collection.anki2"
+export KOREADER_DATABASE_PATH="/path/to/statistics.sqlite3"
+export API_KEY="your-secure-api-key"
+
+# Run in development
+cargo run -p backend
 ```
 
 ### Using Makefile (from workspace root)
@@ -205,26 +221,40 @@ The server uses `CorsLayer::permissive()` to allow cross-origin requests from an
 
 ## Environment Variables
 
-### Required
+### Configuration
+
+Environment variables can be provided in two ways:
+1. **Using a `.env` file** in the workspace root (recommended for development)
+2. **Exporting variables** in your shell before running the server
+
+The server will automatically load variables from a `.env` file if present (using the `dotenvy` crate).
+
+### Required Variables
 
 - **`ANKI_DATABASE_PATH`**: Absolute path to the Anki collection database file (e.g., `/path/to/collection.anki2`)
+- **`KOREADER_DATABASE_PATH`**: Absolute path to the KOReader statistics database file (e.g., `/path/to/statistics.sqlite3`)
 - **`API_KEY`**: Secret key for API authentication. Clients must send this as a Bearer token in the Authorization header.
+
+See `.env.example` in the workspace root for a template.
 
 ### Validation
 
 On startup, the server:
-1. Checks that both environment variables are set (exits with error if not)
-2. Verifies the database file exists at `ANKI_DATABASE_PATH` (exits with error if not)
+1. Loads variables from `.env` file if present
+2. Checks that all required environment variables are set (exits with error if not)
+3. Verifies the database files exist at the specified paths (exits with error if not)
 
 ## Dependencies
 
 - **ankistats**: The library crate providing all core functionality
+- **faithstats**: Library for aggregating faith statistics from multiple sources
 - **axum**: Web framework (0.8.x)
 - **tokio**: Async runtime with "full" features
 - **tower** / **tower-http**: Middleware support (CORS)
 - **serde** / **serde_json**: JSON serialization
 - **utoipa** / **utoipa-swagger-ui**: OpenAPI documentation and Swagger UI
 - **anyhow**: Error handling (used via ankistats and for `AppError`)
+- **dotenvy**: Environment variable loading from `.env` files
 
 ## Deployment
 
