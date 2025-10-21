@@ -1,7 +1,6 @@
 pub mod models;
 
 use anyhow::Result;
-use std::collections::HashMap;
 
 use crate::models::{FaithDailyStats, FaithDayStats};
 
@@ -36,45 +35,21 @@ pub fn get_faith_daily_stats(
     let anki_stats = ankistats::get_last_30_days_stats(anki_db_path)?;
     let reading_stats = readingstats::get_last_30_days_stats(koreader_db_path)?;
 
-    // Create lookup maps by date for efficient merging
-    let anki_map: HashMap<String, &ankistats::models::DayStats> = anki_stats
-        .iter()
-        .map(|day| (day.date.clone(), day))
-        .collect();
-
-    let reading_map: HashMap<String, &readingstats::models::DayStats> = reading_stats
-        .iter()
-        .map(|day| (day.date.clone(), day))
-        .collect();
-
-    // Get all unique dates from both sources and sort them
-    let mut all_dates: Vec<String> = anki_stats
-        .iter()
-        .map(|d| d.date.clone())
-        .chain(reading_stats.iter().map(|d| d.date.clone()))
-        .collect::<std::collections::HashSet<_>>()
+    // Both functions return the same 30 dates in the same order (guaranteed by DatePeriod),
+    // so we can simply zip them together
+    let merged_days: Vec<FaithDayStats> = anki_stats
         .into_iter()
-        .collect();
-    all_dates.sort();
-
-    // Merge stats for each date
-    let mut merged_days = Vec::new();
-    for date in all_dates {
-        let anki_day = anki_map.get(&date);
-        let reading_day = reading_map.get(&date);
-
-        let faith_day = FaithDayStats {
-            date: date.clone(),
-            anki_minutes: anki_day.map(|d| d.minutes).unwrap_or(0.0),
-            anki_matured_passages: anki_day.map(|d| d.matured_passages).unwrap_or(0),
-            anki_lost_passages: anki_day.map(|d| d.lost_passages).unwrap_or(0),
-            anki_cumulative_passages: anki_day.map(|d| d.cumulative_passages).unwrap_or(0),
-            reading_minutes: reading_day.map(|d| d.minutes).unwrap_or(0.0),
+        .zip(reading_stats)
+        .map(|(anki_day, reading_day)| FaithDayStats {
+            date: anki_day.date,
+            anki_minutes: anki_day.minutes,
+            anki_matured_passages: anki_day.matured_passages,
+            anki_lost_passages: anki_day.lost_passages,
+            anki_cumulative_passages: anki_day.cumulative_passages,
+            reading_minutes: reading_day.minutes,
             prayer_minutes: 0.0, // Future enhancement
-        };
-
-        merged_days.push(faith_day);
-    }
+        })
+        .collect();
 
     Ok(FaithDailyStats::new(merged_days))
 }
