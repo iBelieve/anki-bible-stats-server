@@ -11,14 +11,14 @@
 		type ScriptableScaleContext
 	} from 'chart.js';
 	import { Temporal } from '@js-temporal/polyfill';
-	import type { DailyStats } from '$lib/api/client';
+	import type { FaithDailyStats } from '$lib/api/client';
 	import chartColors from '$lib/theme/chartColors';
 
 	// Register Chart.js components
 	ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
 
 	interface Props {
-		data: DailyStats;
+		data: FaithDailyStats;
 	}
 
 	const { data }: Props = $props();
@@ -35,24 +35,35 @@
 		return date.dayOfWeek === 7;
 	};
 
-	// Transform data for Chart.js format
+	// Transform data for Chart.js format (stacked bar chart)
 	const chartData = $derived({
 		labels: data.days.map((day) => formatDate(day.date)),
 		datasets: [
+			// Bottom stack: Reading (Bible) in green
 			{
-				label: 'Minutes Studied',
-				data: data.days.map((day) => day.minutes),
-				backgroundColor: data.days.map((day) =>
-					isSunday(day.date) ? chartColors.bar.background.red : chartColors.bar.background.blue
+				label: 'Reading',
+				data: data.days.map((day) => day.reading_minutes),
+				backgroundColor: chartColors.bar.background.green,
+				borderColor: data.days.map((day) =>
+					isSunday(day.date) ? chartColors.bar.border.red : chartColors.bar.border.green
 				),
+				borderWidth: data.days.map((day) => (isSunday(day.date) ? 2 : 1)),
+				borderRadius: 4,
+				hoverBackgroundColor: chartColors.bar.hover.green,
+				stack: 'stack0'
+			},
+			// Top stack: Anki (Memorization) in blue
+			{
+				label: 'Anki',
+				data: data.days.map((day) => day.anki_minutes),
+				backgroundColor: chartColors.bar.background.blue,
 				borderColor: data.days.map((day) =>
 					isSunday(day.date) ? chartColors.bar.border.red : chartColors.bar.border.blue
 				),
-				borderWidth: 1,
+				borderWidth: data.days.map((day) => (isSunday(day.date) ? 2 : 1)),
 				borderRadius: 4,
-				hoverBackgroundColor: data.days.map((day) =>
-					isSunday(day.date) ? chartColors.bar.hover.red : chartColors.bar.hover.blue
-				)
+				hoverBackgroundColor: chartColors.bar.hover.blue,
+				stack: 'stack0'
 			}
 		]
 	});
@@ -62,19 +73,26 @@
 		maintainAspectRatio: false,
 		plugins: {
 			legend: {
-				display: false
+				display: true,
+				position: 'top' as const
 			},
 			tooltip: {
 				callbacks: {
-					label: (context: { parsed: { y: number | null } }) => {
+					label: (context: { dataset: { label?: string }; parsed: { y: number | null } }) => {
 						const value = context.parsed.y ?? 0;
-						return `${value.toFixed(1)} minutes`;
+						const label = context.dataset.label || '';
+						return `${label}: ${value.toFixed(1)} min`;
+					},
+					footer: (tooltipItems: Array<{ parsed: { y: number | null } }>) => {
+						const total = tooltipItems.reduce((sum, item) => sum + (item.parsed.y ?? 0), 0);
+						return `Total: ${total.toFixed(1)} min`;
 					}
 				}
 			}
 		},
 		scales: {
 			x: {
+				stacked: true,
 				grid: {
 					display: false
 				},
@@ -85,7 +103,7 @@
 						size: 11
 					},
 					color: (context: ScriptableScaleContext) => {
-						// Color Sunday labels red to match their bars
+						// Color Sunday labels red
 						return isSunday(data.days[context.index].date)
 							? chartColors.label.red
 							: chartColors.label.gray;
@@ -93,6 +111,7 @@
 				}
 			},
 			y: {
+				stacked: true,
 				beginAtZero: true,
 				grid: {
 					color: chartColors.grid.gray

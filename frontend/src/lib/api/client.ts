@@ -21,6 +21,9 @@ export type DailyStats = components['schemas']['DailyStats'];
 export type WeeklyStats = components['schemas']['WeeklyStats'];
 export type TodayStats = components['schemas']['TodayStats'];
 export type HealthCheck = components['schemas']['HealthCheck'];
+export type FaithDailyStats = components['schemas']['FaithDailyStats'];
+export type FaithDayStats = components['schemas']['FaithDayStats'];
+export type FaithDailySummary = components['schemas']['FaithDailySummary'];
 
 /**
  * Get Bible book statistics including Old and New Testament breakdowns.
@@ -75,6 +78,21 @@ export async function getWeeklyStats(): Promise<WeeklyStats> {
 
 	if (error) {
 		throw new Error(`Failed to fetch weekly stats: ${error.error}`);
+	} else if (response.status === 401) {
+		throw new Error('Unauthorized: Invalid or missing API key.');
+	}
+
+	return data!;
+}
+
+/**
+ * Get unified faith statistics for the last 30 days, combining Bible reading and Anki memorization.
+ */
+export async function getFaithDailyStats(): Promise<FaithDailyStats> {
+	const { data, error, response } = await apiClient.GET('/api/faith/daily');
+
+	if (error) {
+		throw new Error(`Failed to fetch faith daily stats: ${error.error}`);
 	} else if (response.status === 401) {
 		throw new Error('Unauthorized: Invalid or missing API key.');
 	}
