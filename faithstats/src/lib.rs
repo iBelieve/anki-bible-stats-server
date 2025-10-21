@@ -28,7 +28,10 @@ use crate::models::{FaithDailyStats, FaithDayStats};
 /// )?;
 /// println!("Total faith time: {:.2} hours", stats.summary.total_hours);
 /// ```
-pub fn get_faith_daily_stats(anki_db_path: &str, koreader_db_path: &str) -> Result<FaithDailyStats> {
+pub fn get_faith_daily_stats(
+    anki_db_path: &str,
+    koreader_db_path: &str,
+) -> Result<FaithDailyStats> {
     // Query both databases - will return error if either is unavailable
     let anki_stats = ankistats::get_last_30_days_stats(anki_db_path)?;
     let reading_stats = readingstats::get_last_30_days_stats(koreader_db_path)?;

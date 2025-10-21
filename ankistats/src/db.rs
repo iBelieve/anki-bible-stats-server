@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OpenFlags};
-use std::collections::HashMap;
 use statsutils::{get_day_boundaries, get_today_start_ms, get_week_boundaries};
+use std::collections::HashMap;
 
 use crate::book_name_parser;
 use crate::models::{BookStats, DayStats, WeekStats};
@@ -240,8 +240,7 @@ pub fn get_last_12_weeks_stats(conn: &Connection) -> Result<Vec<WeekStats>> {
 
     // Query each week individually (from oldest to newest)
     for week_offset in (0..12).rev() {
-        let (week_start_ms, week_end_ms, week_start_str) =
-            get_week_boundaries(week_offset)?;
+        let (week_start_ms, week_end_ms, week_start_str) = get_week_boundaries(week_offset)?;
 
         // Query study time
         let time_query = r#"

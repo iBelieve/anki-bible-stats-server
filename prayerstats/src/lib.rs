@@ -1,8 +1,6 @@
 pub mod db;
 pub mod models;
 
-use anyhow::Result;
-
 // Public API functions will be added here as needed
 // For example:
 // - get_prayer_stats(db_path: &str) -> Result<PrayerStats>

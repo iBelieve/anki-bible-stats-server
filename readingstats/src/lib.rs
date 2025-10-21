@@ -1,8 +1,8 @@
 pub mod db;
 pub mod models;
 
-use anyhow::Result;
 use crate::models::DayStats;
+use anyhow::Result;
 
 /// Gets reading time for each of the last 30 days for Bible and Treasury of Daily Prayer books
 ///

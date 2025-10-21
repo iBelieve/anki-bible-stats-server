@@ -44,10 +44,7 @@ fn run_daily_command(db_path: &str) {
                 let hours = day.minutes / 60.0;
 
                 if day.minutes > 0.0 {
-                    println!(
-                        "{}: {:.2} min ({:.1} hrs)",
-                        day.date, day.minutes, hours
-                    );
+                    println!("{}: {:.2} min ({:.1} hrs)", day.date, day.minutes, hours);
                 } else {
                     println!("{}: --- (no reading)", day.date);
                 }

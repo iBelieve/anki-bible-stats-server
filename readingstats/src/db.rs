@@ -56,9 +56,8 @@ pub fn get_last_30_days_stats(conn: &Connection) -> Result<Vec<DayStats>> {
                 AND psd.start_time < ?2
         "#;
 
-        let total_seconds: i64 = conn.query_row(query, [day_start_sec, day_end_sec], |row| {
-            row.get(0)
-        })?;
+        let total_seconds: i64 =
+            conn.query_row(query, [day_start_sec, day_end_sec], |row| row.get(0))?;
 
         let minutes = total_seconds as f64 / 60.0;
 

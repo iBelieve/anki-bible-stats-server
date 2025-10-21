@@ -8,5 +8,5 @@ bun.lockb
 # Miscellaneous
 /static/
 
-/src/lib/apis/**/schema.d.ts
+/src/lib/api/schema.d.ts
 CLAUDE.md

@@ -5,10 +5,6 @@ use ankistats::{
         HealthCheck, TodayStats, WeekStats, WeeklyStats, WeeklySummary,
     },
 };
-use faithstats::{
-    get_faith_daily_stats,
-    models::{FaithDailyStats, FaithDailySummary, FaithDayStats},
-};
 use axum::{
     Router,
     extract::Request,
@@ -16,6 +12,10 @@ use axum::{
     middleware::{self, Next},
     response::{IntoResponse, Json, Response},
     routing::get,
+};
+use faithstats::{
+    get_faith_daily_stats,
+    models::{FaithDailyStats, FaithDailySummary, FaithDayStats},
 };
 use std::env;
 use tower_http::cors::CorsLayer;
@@ -107,7 +107,10 @@ async fn main() {
     }
 
     if !std::path::Path::new(&koreader_db_path).exists() {
-        eprintln!("Error: KOReader database file not found at: {}", koreader_db_path);
+        eprintln!(
+            "Error: KOReader database file not found at: {}",
+            koreader_db_path
+        );
         std::process::exit(1);
     }
 
