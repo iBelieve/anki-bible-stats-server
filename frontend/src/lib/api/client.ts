@@ -17,6 +17,7 @@ const apiClient = createClient<paths>({
 
 // Type exports for convenience
 export type BibleStats = components['schemas']['BibleStats'];
+export type BookStats = components['schemas']['BookStats'];
 export type HealthCheck = components['schemas']['HealthCheck'];
 export type FaithTodayStats = components['schemas']['FaithTodayStats'];
 export type FaithDailyStats = components['schemas']['FaithDailyStats'];

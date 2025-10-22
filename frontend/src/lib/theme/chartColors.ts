@@ -26,6 +26,20 @@ const chartColors = {
 			purple: colors.purple[600]
 		}
 	},
+	book: {
+		oldTestament: {
+			mature: colors.blue[600],
+			young: colors.blue[300],
+			border: colors.blue[700],
+			hover: colors.blue[700]
+		},
+		newTestament: {
+			mature: colors.purple[600],
+			young: colors.purple[300],
+			border: colors.purple[700],
+			hover: colors.purple[700]
+		}
+	},
 	label: {
 		red: colors.red[600],
 		gray: colors.gray[500]

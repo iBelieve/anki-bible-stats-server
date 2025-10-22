@@ -1,14 +1,16 @@
-import { getFaithDailyStats, getFaithWeeklyStats } from '$lib/api/client';
+import { getFaithDailyStats, getFaithWeeklyStats, getBibleStats } from '$lib/api/client';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const [dailyStats, weeklyStats] = await Promise.all([
+	const [dailyStats, weeklyStats, bibleStats] = await Promise.all([
 		getFaithDailyStats(),
-		getFaithWeeklyStats()
+		getFaithWeeklyStats(),
+		getBibleStats()
 	]);
 
 	return {
 		dailyStats,
-		weeklyStats
+		weeklyStats,
+		bibleStats
 	};
 };
