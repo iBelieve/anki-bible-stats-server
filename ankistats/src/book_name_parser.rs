@@ -1,3 +1,15 @@
+/// Normalizes a book name to use the standard display name
+///
+/// Currently handles:
+/// - "Psalm" (from references) → "Psalms" (display name)
+fn normalize_book_name(book_name: &str) -> String {
+    if book_name.eq_ignore_ascii_case("Psalm") {
+        "Psalms".to_string()
+    } else {
+        book_name.to_string()
+    }
+}
+
 /// Parses a Bible reference and extracts the book name
 ///
 /// Supports:
@@ -29,7 +41,7 @@ pub fn try_parse_book_name(reference: &str) -> Result<String, String> {
             if book_name.is_empty() {
                 Err(format!("No book name found in reference '{}'", reference))
             } else {
-                Ok(book_name.to_string())
+                Ok(normalize_book_name(book_name))
             }
         }
         None => Err(format!(
@@ -72,7 +84,7 @@ mod tests {
         );
         assert_eq!(
             try_parse_book_name("Psalm 119:105"),
-            Ok("Psalm".to_string())
+            Ok("Psalms".to_string())
         );
         assert_eq!(try_parse_book_name("John 3:16"), Ok("John".to_string()));
         assert_eq!(
@@ -82,7 +94,7 @@ mod tests {
 
         // Test the wrapper function
         assert_eq!(parse_book_name("Genesis 1:1"), Some("Genesis".to_string()));
-        assert_eq!(parse_book_name("Psalm 119:105"), Some("Psalm".to_string()));
+        assert_eq!(parse_book_name("Psalm 119:105"), Some("Psalms".to_string()));
     }
 
     #[test]
@@ -149,7 +161,7 @@ mod tests {
         // Test with Unicode formatting characters (using escaped sequences)
         assert_eq!(
             try_parse_book_name("Psalm \u{202d}51\u{202c}:\u{202d}3"),
-            Ok("Psalm".to_string())
+            Ok("Psalms".to_string())
         );
         assert_eq!(
             try_parse_book_name("Ephesians\u{202c} \u{202d}4:32\u{202c}"),
@@ -159,7 +171,7 @@ mod tests {
         // Test the wrapper function
         assert_eq!(
             parse_book_name("Psalm \u{202d}51\u{202c}:\u{202d}3"),
-            Some("Psalm".to_string())
+            Some("Psalms".to_string())
         );
     }
 

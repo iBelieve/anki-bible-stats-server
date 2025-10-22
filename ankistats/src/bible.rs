@@ -18,7 +18,7 @@ pub const OLD_TESTAMENT: &[&str] = &[
     "Nehemiah",
     "Esther",
     "Job",
-    "Psalm", // NOTE: Singular "Psalm" to match usage in references
+    "Psalms",
     "Proverbs",
     "Ecclesiastes",
     "Song of Solomon",
