@@ -226,13 +226,32 @@ cargo run -p readingstats -- daily /path/to/statistics.sqlite3
 
 ## Deployment
 
-The project includes a Dockerfile for containerized deployment. When deploying:
+The project includes Dockerfiles for containerized deployment of both backend and frontend.
+
+### Backend Deployment
+
+The root `Dockerfile` builds the Rust backend API. When deploying:
 
 1. Set the required environment variables (`ANKI_DATABASE_PATH`, `KOREADER_DATABASE_PATH`, `API_KEY`)
 2. Mount volumes containing the database files
 3. Expose port 3000 for the backend API
 
-The frontend is configured for Cloudflare Pages deployment via `@sveltejs/adapter-cloudflare`.
+```bash
+docker build -t lifestats-backend -f Dockerfile .
+docker run -p 3000:3000 --env-file .env lifestats-backend
+```
+
+### Frontend Deployment
+
+The `frontend/Dockerfile` builds the SvelteKit frontend as a Node.js application. The frontend runs on port 3000:
+
+```bash
+cd frontend
+docker build -t lifestats-frontend .
+docker run -p 3000:3000 lifestats-frontend
+```
+
+The frontend is configured for Node.js deployment via `@sveltejs/adapter-node`.
 
 ## Additional Documentation
 
