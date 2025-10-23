@@ -182,6 +182,6 @@
 	});
 </script>
 
-<div class="h-64 w-full md:h-96">
+<div class="h-64 w-full md:h-80">
 	<Chart type="bar" data={chartData} {options} />
 </div>
