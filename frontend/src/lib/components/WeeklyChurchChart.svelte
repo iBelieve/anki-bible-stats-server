@@ -81,9 +81,10 @@
 				},
 				title: {
 					display: true,
-					text: 'Time'
+					text: 'Hours'
 				},
 				ticks: {
+					stepSize: 60, // Force ticks at exact hour intervals
 					callback: function (value: string | number) {
 						// Convert the tick value (minutes) to hours and minutes format
 						const minutes = typeof value === 'number' ? value : parseFloat(value);

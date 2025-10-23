@@ -12,6 +12,7 @@
 	import { Temporal } from '@js-temporal/polyfill';
 	import type { FaithWeeklyStats } from '$lib/api/client';
 	import chartColors from '$lib/theme/chartColors';
+	import { formatMinutesToHoursMinutes } from '$lib/utils/timeFormat';
 
 	// Register Chart.js components
 	ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
@@ -79,13 +80,13 @@
 			tooltip: {
 				callbacks: {
 					label: (context: { dataset: { label?: string }; parsed: { y: number | null } }) => {
-						const value = context.parsed.y ?? 0;
+						const minutes = context.parsed.y ?? 0;
 						const label = context.dataset.label || '';
-						return `${label}: ${value.toFixed(1)} min`;
+						return `${label}: ${formatMinutesToHoursMinutes(minutes)}`;
 					},
 					footer: (tooltipItems: Array<{ parsed: { y: number | null } }>) => {
 						const total = tooltipItems.reduce((sum, item) => sum + (item.parsed.y ?? 0), 0);
-						return `Total: ${total.toFixed(1)} min`;
+						return `Total: ${formatMinutesToHoursMinutes(total)}`;
 					}
 				}
 			}
@@ -112,7 +113,19 @@
 				},
 				title: {
 					display: true,
-					text: 'Minutes'
+					text: 'Hours'
+				},
+				ticks: {
+					stepSize: 30, // Show ticks every 30 minutes (half hour)
+					callback: function (value: string | number) {
+						// Convert the tick value (minutes) to hours and minutes format
+						const minutes = typeof value === 'number' ? value : parseFloat(value);
+						// Only show labels on whole hours, hide labels for half hours
+						if (minutes % 60 === 0) {
+							return formatMinutesToHoursMinutes(minutes);
+						}
+						return ''; // Return empty string for half-hour ticks (shows tick but no label)
+					}
 				}
 			}
 		}
