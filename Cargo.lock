@@ -122,9 +122,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "chrono-tz",
  "clap",
  "serde",
  "serde_json",
+ "statsutils",
+ "utoipa",
 ]
 
 [[package]]
@@ -432,6 +435,7 @@ version = "0.1.0"
 dependencies = [
  "ankistats",
  "anyhow",
+ "arcstats",
  "clap",
  "dotenvy",
  "prayerstats",

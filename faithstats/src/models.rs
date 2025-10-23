@@ -208,6 +208,10 @@ pub struct FaithWeekStats {
     /// Bible reading time in minutes
     pub reading_minutes: f64,
 
+    // Arc church attendance stats
+    /// Time spent at church in minutes
+    pub at_church_minutes: f64,
+
     // Prayer stats (future)
     /// Prayer time in minutes
     pub prayer_minutes: f64,
@@ -216,7 +220,7 @@ pub struct FaithWeekStats {
 impl FaithWeekStats {
     /// Total minutes across all faith activities for this week
     pub fn total_minutes(&self) -> f64 {
-        self.anki_minutes + self.reading_minutes + self.prayer_minutes
+        self.anki_minutes + self.reading_minutes + self.at_church_minutes + self.prayer_minutes
     }
 }
 
@@ -232,6 +236,9 @@ pub struct FaithWeekStatsDisplay {
     #[tabled(rename = "Reading (min)")]
     pub reading_minutes: String,
 
+    #[tabled(rename = "Church (min)")]
+    pub church_minutes: String,
+
     #[tabled(rename = "Prayer (min)")]
     pub prayer_minutes: String,
 
@@ -245,6 +252,7 @@ impl From<&FaithWeekStats> for FaithWeekStatsDisplay {
             week_start: stats.week_start.clone(),
             anki_minutes: format!("{:.1}", stats.anki_minutes),
             reading_minutes: format!("{:.1}", stats.reading_minutes),
+            church_minutes: format!("{:.1}", stats.at_church_minutes),
             prayer_minutes: format!("{:.1}", stats.prayer_minutes),
             total_minutes: format!("{:.1}", stats.total_minutes()),
         }
@@ -269,6 +277,12 @@ pub struct FaithWeeklySummary {
     pub reading_average_minutes_per_week: f64,
     pub reading_weeks_studied: usize,
 
+    // Church stats
+    pub church_total_minutes: f64,
+    pub church_total_hours: f64,
+    pub church_average_minutes_per_week: f64,
+    pub church_weeks_attended: usize,
+
     // Prayer stats
     pub prayer_total_minutes: f64,
     pub prayer_total_hours: f64,
@@ -287,17 +301,20 @@ impl FaithWeeklySummary {
     pub fn from_faith_weekly_stats(weeks: &[FaithWeekStats]) -> Self {
         let anki_total: f64 = weeks.iter().map(|w| w.anki_minutes).sum();
         let reading_total: f64 = weeks.iter().map(|w| w.reading_minutes).sum();
+        let church_total: f64 = weeks.iter().map(|w| w.at_church_minutes).sum();
         let prayer_total: f64 = weeks.iter().map(|w| w.prayer_minutes).sum();
-        let combined_total = anki_total + reading_total + prayer_total;
+        let combined_total = anki_total + reading_total + church_total + prayer_total;
 
         let anki_weeks = weeks.iter().filter(|w| w.anki_minutes > 0.0).count();
         let reading_weeks = weeks.iter().filter(|w| w.reading_minutes > 0.0).count();
+        let church_weeks = weeks.iter().filter(|w| w.at_church_minutes > 0.0).count();
         let prayer_weeks = weeks.iter().filter(|w| w.prayer_minutes > 0.0).count();
         let any_activity_weeks = weeks.iter().filter(|w| w.total_minutes() > 0.0).count();
 
         let total_weeks = weeks.len();
         let anki_avg = anki_total / total_weeks as f64;
         let reading_avg = reading_total / total_weeks as f64;
+        let church_avg = church_total / total_weeks as f64;
         let prayer_avg = prayer_total / total_weeks as f64;
         let combined_avg = combined_total / total_weeks as f64;
 
@@ -317,6 +334,11 @@ impl FaithWeeklySummary {
             reading_total_hours: reading_total / 60.0,
             reading_average_minutes_per_week: reading_avg,
             reading_weeks_studied: reading_weeks,
+
+            church_total_minutes: church_total,
+            church_total_hours: church_total / 60.0,
+            church_average_minutes_per_week: church_avg,
+            church_weeks_attended: church_weeks,
 
             prayer_total_minutes: prayer_total,
             prayer_total_hours: prayer_total / 60.0,

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DailyStudyChart from '$lib/components/DailyStudyChart.svelte';
 	import WeeklyStudyChart from '$lib/components/WeeklyStudyChart.svelte';
+	import WeeklyChurchChart from '$lib/components/WeeklyChurchChart.svelte';
 	import BookStatsChart from '$lib/components/BookStatsChart.svelte';
 
 	const { data } = $props();
@@ -17,6 +18,11 @@
 	<div class="mb-8">
 		<h2 class="mb-4 text-2xl font-semibold">Weekly Study Time (Last 12 Weeks)</h2>
 		<WeeklyStudyChart data={data.weeklyStats} />
+	</div>
+
+	<div class="mb-8">
+		<h2 class="mb-4 text-2xl font-semibold">Time at Church (Last 12 Weeks)</h2>
+		<WeeklyChurchChart data={data.weeklyStats} />
 	</div>
 
 	<div class="mb-8">

@@ -273,6 +273,11 @@ export interface components {
             anki_minutes: number;
             /**
              * Format: double
+             * @description Time spent at church in minutes
+             */
+            at_church_minutes: number;
+            /**
+             * Format: double
              * @description Prayer time in minutes
              */
             prayer_minutes: number;
@@ -306,6 +311,13 @@ export interface components {
             anki_weeks_studied: number;
             /** Format: double */
             average_minutes_per_week: number;
+            /** Format: double */
+            church_average_minutes_per_week: number;
+            /** Format: double */
+            church_total_hours: number;
+            /** Format: double */
+            church_total_minutes: number;
+            church_weeks_attended: number;
             /** Format: double */
             prayer_average_minutes_per_week: number;
             /** Format: double */

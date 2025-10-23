@@ -27,6 +27,7 @@ use utoipa_swagger_ui::SwaggerUi;
 struct AppConfig {
     anki_db_path: String,
     koreader_db_path: String,
+    arcstats_export_path: String,
     proseuche_db_path: String,
 }
 
@@ -95,6 +96,11 @@ async fn main() {
         std::process::exit(1);
     });
 
+    let arcstats_export_path = env::var("ARCSTATS_EXPORT_PATH").unwrap_or_else(|_| {
+        eprintln!("Error: ARCSTATS_EXPORT_PATH environment variable is required");
+        std::process::exit(1);
+    });
+
     let proseuche_db_path = env::var("PROSEUCHE_DATABASE_PATH").unwrap_or_else(|_| {
         eprintln!("Error: PROSEUCHE_DATABASE_PATH environment variable is required");
         std::process::exit(1);
@@ -130,6 +136,7 @@ async fn main() {
     let config = AppConfig {
         anki_db_path: anki_db_path.clone(),
         koreader_db_path: koreader_db_path.clone(),
+        arcstats_export_path: arcstats_export_path.clone(),
         proseuche_db_path: proseuche_db_path.clone(),
     };
 
@@ -288,7 +295,7 @@ async fn get_faith_daily_stats_endpoint(
 async fn get_faith_weekly_stats_endpoint(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<FaithWeeklyStats>, AppError> {
-    let stats = get_faith_weekly_stats(&config.anki_db_path, &config.koreader_db_path, &config.proseuche_db_path)?;
+    let stats = get_faith_weekly_stats(&config.anki_db_path, &config.koreader_db_path, &config.arcstats_export_path, &config.proseuche_db_path)?;
     Ok(Json(stats))
 }
 

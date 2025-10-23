@@ -11,18 +11,21 @@ const chartColors = {
 			blue: colors.blue[500],
 			red: colors.red[500],
 			green: colors.green[500],
+			orange: colors.orange[500],
 			purple: colors.purple[500]
 		},
 		border: {
 			blue: colors.blue[600],
 			red: colors.red[600],
 			green: colors.green[600],
+			orange: colors.orange[600],
 			purple: colors.purple[600]
 		},
 		hover: {
 			blue: colors.blue[600],
 			red: colors.red[600],
 			green: colors.green[600],
+			orange: colors.orange[600],
 			purple: colors.purple[600]
 		}
 	},

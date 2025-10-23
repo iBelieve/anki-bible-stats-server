@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 ankistats = { path = "../ankistats" }
+arcstats = { path = "../arcstats" }
 readingstats = { path = "../readingstats" }
 prayerstats = { path = "../prayerstats" }
 statsutils = { path = "../statsutils" }

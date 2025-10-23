@@ -25,6 +25,7 @@
 
 pub mod loader;
 pub mod models;
+pub mod stats;
 
 // Re-export commonly used types and functions
 pub use loader::{
@@ -35,3 +36,4 @@ pub use models::{
     apple_timestamp_to_datetime, BaseItem, ExportStats, Item, ItemWithPlace, Metadata, Place,
     TripDetails, VisitDetails,
 };
+pub use stats::{get_last_12_weeks_stats, WeekStats};
