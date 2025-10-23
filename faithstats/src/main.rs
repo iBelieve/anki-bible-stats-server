@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
-use faithstats::{get_faith_daily_stats, get_faith_weekly_stats};
 use faithstats::models::{FaithDayStatsDisplay, FaithWeekStatsDisplay};
+use faithstats::{get_faith_daily_stats, get_faith_weekly_stats};
 use std::process;
 use tabled::{Table, settings::Style};
 

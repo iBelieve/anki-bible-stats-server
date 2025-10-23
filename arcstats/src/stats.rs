@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, Duration, Timelike, Utc};
+use chrono::{DateTime, Datelike, Duration, Timelike, Utc};
 use chrono_tz::America::Chicago;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

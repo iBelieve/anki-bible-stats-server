@@ -149,16 +149,18 @@ pub fn get_faith_weekly_stats(
         .zip(reading_stats)
         .zip(church_stats)
         .zip(prayer_stats)
-        .map(|(((anki_week, reading_week), church_week), prayer_week)| FaithWeekStats {
-            week_start: anki_week.week_start,
-            anki_minutes: anki_week.minutes,
-            anki_matured_passages: anki_week.matured_passages,
-            anki_lost_passages: anki_week.lost_passages,
-            anki_cumulative_passages: anki_week.cumulative_passages,
-            reading_minutes: reading_week.minutes,
-            at_church_minutes: church_week.minutes,
-            prayer_minutes: prayer_week.minutes,
-        })
+        .map(
+            |(((anki_week, reading_week), church_week), prayer_week)| FaithWeekStats {
+                week_start: anki_week.week_start,
+                anki_minutes: anki_week.minutes,
+                anki_matured_passages: anki_week.matured_passages,
+                anki_lost_passages: anki_week.lost_passages,
+                anki_cumulative_passages: anki_week.cumulative_passages,
+                reading_minutes: reading_week.minutes,
+                at_church_minutes: church_week.minutes,
+                prayer_minutes: prayer_week.minutes,
+            },
+        )
         .collect();
 
     Ok(FaithWeeklyStats::new(merged_weeks))

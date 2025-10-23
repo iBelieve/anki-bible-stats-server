@@ -1,4 +1,4 @@
-use arcstats::{load_metadata, load_places_file, load_items_for_month};
+use arcstats::{load_items_for_month, load_metadata, load_places_file};
 use clap::Parser;
 use std::fs;
 use std::path::PathBuf;

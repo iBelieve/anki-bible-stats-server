@@ -170,9 +170,7 @@ pub fn load_items_with_places<P: AsRef<Path>>(
 }
 
 /// Load all items with their associated places resolved
-pub fn load_all_items_with_places<P: AsRef<Path>>(
-    export_path: P,
-) -> Result<Vec<ItemWithPlace>> {
+pub fn load_all_items_with_places<P: AsRef<Path>>(export_path: P) -> Result<Vec<ItemWithPlace>> {
     let items = load_all_items(&export_path)?;
     let mut place_cache = PlaceCache::new(&export_path);
     let mut items_with_places = Vec::new();
@@ -254,8 +252,7 @@ mod tests {
 
     #[test]
     fn test_load_items_for_month() {
-        let items =
-            load_items_for_month(EXPORT_PATH, "2025-08").expect("Failed to load items");
+        let items = load_items_for_month(EXPORT_PATH, "2025-08").expect("Failed to load items");
         assert!(!items.is_empty());
 
         // Verify first item structure
@@ -293,18 +290,13 @@ mod tests {
 
     #[test]
     fn test_place_sharing_across_items() {
-        let items = load_all_items_with_places(EXPORT_PATH)
-            .expect("Failed to load all items with places");
+        let items =
+            load_all_items_with_places(EXPORT_PATH).expect("Failed to load all items with places");
 
         // Find multiple visits to the same place (Home)
         let home_visits: Vec<_> = items
             .iter()
-            .filter(|i| {
-                i.place
-                    .as_ref()
-                    .map(|p| p.name == "Home")
-                    .unwrap_or(false)
-            })
+            .filter(|i| i.place.as_ref().map(|p| p.name == "Home").unwrap_or(false))
             .collect();
 
         assert!(home_visits.len() > 1);

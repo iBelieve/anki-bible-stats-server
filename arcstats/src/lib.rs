@@ -29,11 +29,11 @@ pub mod stats;
 
 // Re-export commonly used types and functions
 pub use loader::{
-    load_all_items, load_all_items_with_places, load_all_places, load_items_for_month,
-    load_items_with_places, load_metadata, load_places_file, PlaceCache,
+    PlaceCache, load_all_items, load_all_items_with_places, load_all_places, load_items_for_month,
+    load_items_with_places, load_metadata, load_places_file,
 };
 pub use models::{
-    apple_timestamp_to_datetime, BaseItem, ExportStats, Item, ItemWithPlace, Metadata, Place,
-    TripDetails, VisitDetails,
+    BaseItem, ExportStats, Item, ItemWithPlace, Metadata, Place, TripDetails, VisitDetails,
+    apple_timestamp_to_datetime,
 };
-pub use stats::{get_last_12_weeks_stats, WeekStats};
+pub use stats::{WeekStats, get_last_12_weeks_stats};

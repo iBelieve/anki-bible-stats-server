@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OpenFlags};
-use statsutils::{get_today_start_ms, register_date_functions, DatePeriod};
+use statsutils::{DatePeriod, get_today_start_ms, register_date_functions};
 use std::collections::HashMap;
 
 use crate::book_name_parser;

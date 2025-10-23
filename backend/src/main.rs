@@ -253,7 +253,11 @@ async fn get_books_stats(
 async fn get_faith_today_stats_endpoint(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<FaithTodayStats>, AppError> {
-    let stats = get_faith_today_stats(&config.anki_db_path, &config.koreader_db_path, &config.proseuche_db_path)?;
+    let stats = get_faith_today_stats(
+        &config.anki_db_path,
+        &config.koreader_db_path,
+        &config.proseuche_db_path,
+    )?;
     Ok(Json(stats))
 }
 
@@ -274,7 +278,11 @@ async fn get_faith_today_stats_endpoint(
 async fn get_faith_daily_stats_endpoint(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<FaithDailyStats>, AppError> {
-    let stats = get_faith_daily_stats(&config.anki_db_path, &config.koreader_db_path, &config.proseuche_db_path)?;
+    let stats = get_faith_daily_stats(
+        &config.anki_db_path,
+        &config.koreader_db_path,
+        &config.proseuche_db_path,
+    )?;
     Ok(Json(stats))
 }
 
@@ -295,7 +303,12 @@ async fn get_faith_daily_stats_endpoint(
 async fn get_faith_weekly_stats_endpoint(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> Result<Json<FaithWeeklyStats>, AppError> {
-    let stats = get_faith_weekly_stats(&config.anki_db_path, &config.koreader_db_path, &config.arcstats_export_path, &config.proseuche_db_path)?;
+    let stats = get_faith_weekly_stats(
+        &config.anki_db_path,
+        &config.koreader_db_path,
+        &config.arcstats_export_path,
+        &config.proseuche_db_path,
+    )?;
     Ok(Json(stats))
 }
 
