@@ -3,6 +3,8 @@
 	import WeeklyStudyChart from '$lib/components/WeeklyStudyChart.svelte';
 	import WeeklyChurchChart from '$lib/components/WeeklyChurchChart.svelte';
 	import BookStatsChart from '$lib/components/BookStatsChart.svelte';
+	import AnkiDailyLearningProgressChart from '$lib/components/AnkiDailyLearningProgressChart.svelte';
+	import AnkiWeeklyLearningProgressChart from '$lib/components/AnkiWeeklyLearningProgressChart.svelte';
 
 	const { data } = $props();
 </script>
@@ -28,5 +30,15 @@
 	<div class="mb-8">
 		<h2 class="mb-4 text-2xl font-semibold">Bible Books Progress</h2>
 		<BookStatsChart data={data.bibleStats} />
+	</div>
+
+	<div class="mb-8">
+		<h2 class="mb-4 text-2xl font-semibold">Learning Progress (Last 30 Days)</h2>
+		<AnkiDailyLearningProgressChart data={data.dailyStats} />
+	</div>
+
+	<div class="mb-8">
+		<h2 class="mb-4 text-2xl font-semibold">Learning Progress (Last 12 Weeks)</h2>
+		<AnkiWeeklyLearningProgressChart data={data.weeklyStats} />
 	</div>
 </div>
