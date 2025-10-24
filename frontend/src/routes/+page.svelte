@@ -12,7 +12,7 @@
 </script>
 
 <div class="container mx-auto p-8">
-	<h1 class="mb-8 text-3xl font-bold">Faith Statistics</h1>
+	<h1 class="mb-8 text-3xl font-bold">Life Statistics</h1>
 
 	<div class="grid grid-cols-1 gap-8 xl:grid-cols-2">
 		<Card title="Daily Study Time (Last 30 Days)">
