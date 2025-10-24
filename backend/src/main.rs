@@ -2,6 +2,7 @@ use ankistats::{
     get_bible_stats,
     models::{AggregateStats, BibleStats, BookStats, ErrorResponse, HealthCheck},
 };
+use arcstats::stats::{get_top_places_last_6_months, PlaceStats};
 use axum::{
     Router,
     extract::Request,
@@ -40,16 +41,18 @@ struct AppConfig {
         get_faith_today_stats_endpoint,
         get_faith_daily_stats_endpoint,
         get_faith_weekly_stats_endpoint,
+        get_top_places_stats_endpoint,
     ),
     components(
         schemas(HealthCheck, BibleStats, BookStats, AggregateStats, ErrorResponse,
                 FaithTodayStats, FaithDailyStats, FaithDailySummary, FaithDayStats,
-                FaithWeeklyStats, FaithWeeklySummary, FaithWeekStats)
+                FaithWeeklyStats, FaithWeeklySummary, FaithWeekStats, PlaceStats)
     ),
     tags(
         (name = "health", description = "Health check endpoints"),
         (name = "anki", description = "Anki Bible memorization statistics endpoints"),
-        (name = "faith", description = "Unified faith statistics endpoints combining multiple sources")
+        (name = "faith", description = "Unified faith statistics endpoints combining multiple sources"),
+        (name = "arc", description = "Arc Timeline location tracking statistics endpoints")
     ),
     info(
         title = "Life Stats API",
@@ -153,6 +156,7 @@ async fn main() {
         .route("/api/faith/today", get(get_faith_today_stats_endpoint))
         .route("/api/faith/daily", get(get_faith_daily_stats_endpoint))
         .route("/api/faith/weekly", get(get_faith_weekly_stats_endpoint))
+        .route("/api/arc/top-places", get(get_top_places_stats_endpoint))
         .layer(middleware::from_fn(move |req, next| {
             auth_middleware(req, next, api_key.clone())
         }))
@@ -309,6 +313,27 @@ async fn get_faith_weekly_stats_endpoint(
         &config.arcstats_export_path,
         &config.proseuche_db_path,
     )?;
+    Ok(Json(stats))
+}
+
+/// Get top 10 places by time spent over last 6 months
+#[utoipa::path(
+    get,
+    path = "/api/arc/top-places",
+    responses(
+        (status = 200, description = "Top 10 places by hours spent over last 6 months retrieved successfully", body = Vec<PlaceStats>),
+        (status = 401, description = "Unauthorized - invalid or missing API key"),
+        (status = 500, description = "Internal server error", body = ErrorResponse)
+    ),
+    security(
+        ("bearer_auth" = [])
+    ),
+    tag = "arc"
+)]
+async fn get_top_places_stats_endpoint(
+    axum::extract::State(config): axum::extract::State<AppConfig>,
+) -> Result<Json<Vec<PlaceStats>>, AppError> {
+    let stats = get_top_places_last_6_months(&config.arcstats_export_path, 10)?;
     Ok(Json(stats))
 }
 

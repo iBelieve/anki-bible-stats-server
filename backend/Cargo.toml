@@ -6,6 +6,7 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 ankistats = { path = "../ankistats" }
+arcstats = { path = "../arcstats" }
 faithstats = { path = "../faithstats" }
 axum = "0.8.6"
 tokio = { version = "1.47.1", features = ["full"] }

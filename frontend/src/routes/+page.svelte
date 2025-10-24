@@ -3,6 +3,7 @@
 	import DailyStudyChart from '$lib/components/DailyStudyChart.svelte';
 	import WeeklyStudyChart from '$lib/components/WeeklyStudyChart.svelte';
 	import WeeklyChurchChart from '$lib/components/WeeklyChurchChart.svelte';
+	import TopPlacesChart from '$lib/components/TopPlacesChart.svelte';
 	import BookStatsChart from '$lib/components/BookStatsChart.svelte';
 	import AnkiDailyLearningProgressChart from '$lib/components/AnkiDailyLearningProgressChart.svelte';
 	import AnkiWeeklyLearningProgressChart from '$lib/components/AnkiWeeklyLearningProgressChart.svelte';
@@ -24,6 +25,10 @@
 
 		<Card title="Time at Church (Last 12 Weeks)">
 			<WeeklyChurchChart data={data.weeklyStats} />
+		</Card>
+
+		<Card title="Top Places (Last 6 Months)">
+			<TopPlacesChart data={data.topPlaces} />
 		</Card>
 
 		<div class="xl:col-span-2">

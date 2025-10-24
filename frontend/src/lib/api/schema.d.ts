@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/arc/top-places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get top 10 places by time spent over last 6 months */
+        get: operations["get_top_places_stats_endpoint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/faith/daily": {
         parameters: {
             query?: never;
@@ -344,6 +361,16 @@ export interface components {
             service: string;
             status: string;
         };
+        /** @description Statistics for a single place showing time spent */
+        PlaceStats: {
+            /**
+             * Format: double
+             * @description Total hours spent at this place
+             */
+            hours: number;
+            /** @description Name of the place */
+            place_name: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -369,6 +396,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BibleStats"];
+                };
+            };
+            /** @description Unauthorized - invalid or missing API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_top_places_stats_endpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Top 10 places by hours spent over last 6 months retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceStats"][];
                 };
             };
             /** @description Unauthorized - invalid or missing API key */

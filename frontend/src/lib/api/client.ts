@@ -26,6 +26,7 @@ export type FaithDailySummary = components['schemas']['FaithDailySummary'];
 export type FaithWeeklyStats = components['schemas']['FaithWeeklyStats'];
 export type FaithWeekStats = components['schemas']['FaithWeekStats'];
 export type FaithWeeklySummary = components['schemas']['FaithWeeklySummary'];
+export type PlaceStats = components['schemas']['PlaceStats'];
 
 /**
  * Get Bible book statistics including Old and New Testament breakdowns.
@@ -80,6 +81,21 @@ export async function getFaithDailyStats(): Promise<FaithDailyStats> {
 
 	if (error) {
 		throw new Error(`Failed to fetch faith daily stats: ${error.error}`);
+	} else if (response.status === 401) {
+		throw new Error('Unauthorized: Invalid or missing API key.');
+	}
+
+	return data!;
+}
+
+/**
+ * Get top 10 places by hours spent over the last 6 months.
+ */
+export async function getTopPlaces(): Promise<PlaceStats[]> {
+	const { data, error, response } = await apiClient.GET('/api/arc/top-places');
+
+	if (error) {
+		throw new Error(`Failed to fetch top places: ${error.error}`);
 	} else if (response.status === 401) {
 		throw new Error('Unauthorized: Invalid or missing API key.');
 	}

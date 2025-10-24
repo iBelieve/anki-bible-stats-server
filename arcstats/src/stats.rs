@@ -17,6 +17,15 @@ pub struct WeekStats {
     pub minutes: f64,
 }
 
+/// Statistics for a single place showing time spent
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PlaceStats {
+    /// Name of the place
+    pub place_name: String,
+    /// Total hours spent at this place
+    pub hours: f64,
+}
+
 /// Converts a UTC datetime to a week start date string (YYYY-MM-DD)
 /// Applies 4 AM rollover and finds the most recent Sunday in Chicago timezone
 fn get_week_start_for_datetime(dt: DateTime<Utc>) -> String {
@@ -94,6 +103,73 @@ pub fn get_last_12_weeks_stats(export_path: &str) -> Result<Vec<WeekStats>> {
     });
 
     Ok(results)
+}
+
+/// Gets the top N places by total hours spent over the last 6 months
+///
+/// # Arguments
+///
+/// * `export_path` - Path to the Arc Timeline export directory containing places/, items/, and metadata.json
+/// * `limit` - Maximum number of places to return (e.g., 10 for top 10)
+///
+/// # Returns
+///
+/// A vector of PlaceStats sorted by hours descending (most time first).
+/// Excludes the place named "Home".
+pub fn get_top_places_last_6_months(export_path: &str, limit: usize) -> Result<Vec<PlaceStats>> {
+    const DAYS_IN_6_MONTHS: i64 = 182;
+
+    // Calculate the cutoff date (6 months ago)
+    let now = Utc::now();
+    let cutoff_date = now - Duration::days(DAYS_IN_6_MONTHS);
+
+    // Load all items with their associated places
+    let items = load_all_items_with_places(export_path)?;
+
+    // Collect visits with place names and durations
+    let mut place_durations: HashMap<String, f64> = HashMap::new();
+
+    for item_with_place in items {
+        // Skip if not a visit
+        if !item_with_place.item.base.is_visit {
+            continue;
+        }
+
+        // Skip if no place
+        let Some(place) = &item_with_place.place else {
+            continue;
+        };
+
+        // Skip if place name is "Home"
+        if place.name == "Home" {
+            continue;
+        }
+
+        // Skip if visit is before cutoff date
+        let visit_start = item_with_place.item.start_datetime();
+        if visit_start < cutoff_date {
+            continue;
+        }
+
+        // Calculate duration in hours
+        let duration_hours = item_with_place.item.duration_seconds() / 3600.0;
+
+        // Add to place total
+        *place_durations.entry(place.name.clone()).or_insert(0.0) += duration_hours;
+    }
+
+    // Convert to vec of PlaceStats and sort by hours descending
+    let mut place_stats: Vec<PlaceStats> = place_durations
+        .into_iter()
+        .map(|(place_name, hours)| PlaceStats { place_name, hours })
+        .collect();
+
+    place_stats.sort_by(|a, b| b.hours.partial_cmp(&a.hours).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Take top N
+    place_stats.truncate(limit);
+
+    Ok(place_stats)
 }
 
 #[cfg(test)]
