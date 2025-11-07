@@ -95,6 +95,7 @@ pub fn get_model_id(conn: &Connection) -> Result<i64> {
 
 /// Gets statistics for all Bible books in a single query using GROUP BY
 /// Returns a HashMap with book names as keys and BookStats as values
+/// A note is only considered mature if BOTH cards (ord=0 and ord=1) are mature
 pub fn get_all_books_stats(
     conn: &Connection,
     deck_id: i64,
@@ -103,20 +104,37 @@ pub fn get_all_books_stats(
     let query = format!(
         r#"
         SELECT
-            parse_book_name(sfld) as book,
-            SUM(CASE WHEN queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl >= 21 THEN 1 ELSE 0 END) as mature_passages,
-            SUM(CASE WHEN queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR
-                              (queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl < 21) THEN 1 ELSE 0 END) as young_passages,
-            SUM(CASE WHEN queue={QUEUE_TYPE_NEW} THEN 1 ELSE 0 END) as unseen_passages,
-            SUM(CASE WHEN queue<{QUEUE_TYPE_NEW} THEN 1 ELSE 0 END) as suspended_passages,
-            SUM(CASE WHEN queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl >= 21 THEN count_verses(sfld) ELSE 0 END) as mature_verses,
-            SUM(CASE WHEN queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR
-                              (queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl < 21) THEN count_verses(sfld) ELSE 0 END) as young_verses,
-            SUM(CASE WHEN queue={QUEUE_TYPE_NEW} THEN count_verses(sfld) ELSE 0 END) as unseen_verses,
-            SUM(CASE WHEN queue<{QUEUE_TYPE_NEW} THEN count_verses(sfld) ELSE 0 END) as suspended_verses
-        FROM cards
-        JOIN notes ON notes.id = cards.nid
-        WHERE ord = 0 AND mid = ?1 AND did = ?2
+            parse_book_name(n.sfld) as book,
+            SUM(CASE
+                WHEN c0.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c0.ivl >= 21
+                 AND c1.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c1.ivl >= 21
+                THEN 1 ELSE 0 END) as mature_passages,
+            SUM(CASE
+                WHEN NOT (c0.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c0.ivl >= 21
+                      AND c1.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c1.ivl >= 21)
+                 AND (c0.queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR c1.queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN})
+                      OR (c0.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c0.ivl < 21)
+                      OR (c1.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c1.ivl < 21))
+                THEN 1 ELSE 0 END) as young_passages,
+            SUM(CASE WHEN c0.queue={QUEUE_TYPE_NEW} OR c1.queue={QUEUE_TYPE_NEW} THEN 1 ELSE 0 END) as unseen_passages,
+            SUM(CASE WHEN c0.queue<{QUEUE_TYPE_NEW} OR c1.queue<{QUEUE_TYPE_NEW} THEN 1 ELSE 0 END) as suspended_passages,
+            SUM(CASE
+                WHEN c0.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c0.ivl >= 21
+                 AND c1.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c1.ivl >= 21
+                THEN count_verses(n.sfld) ELSE 0 END) as mature_verses,
+            SUM(CASE
+                WHEN NOT (c0.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c0.ivl >= 21
+                      AND c1.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c1.ivl >= 21)
+                 AND (c0.queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR c1.queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN})
+                      OR (c0.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c0.ivl < 21)
+                      OR (c1.queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND c1.ivl < 21))
+                THEN count_verses(n.sfld) ELSE 0 END) as young_verses,
+            SUM(CASE WHEN c0.queue={QUEUE_TYPE_NEW} OR c1.queue={QUEUE_TYPE_NEW} THEN count_verses(n.sfld) ELSE 0 END) as unseen_verses,
+            SUM(CASE WHEN c0.queue<{QUEUE_TYPE_NEW} OR c1.queue<{QUEUE_TYPE_NEW} THEN count_verses(n.sfld) ELSE 0 END) as suspended_verses
+        FROM notes n
+        JOIN cards c0 ON c0.nid = n.id AND c0.ord = 0
+        JOIN cards c1 ON c1.nid = n.id AND c1.ord = 1
+        WHERE n.mid = ?1 AND c0.did = ?2 AND c1.did = ?2
         GROUP BY book
         HAVING book IS NOT NULL
         "#
