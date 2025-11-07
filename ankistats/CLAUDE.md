@@ -106,12 +106,18 @@ These functions are used directly in SQL queries to aggregate both passage count
 #### Card Status Classification
 
 Card status is determined by queue type and interval (see Anki schema constants defined at the top of `db.rs`):
-- **Mature**: Review/buried cards with `ivl >= 21` days
-- **Young**: Learning cards OR review/buried cards with `ivl < 21` days
-- **Unseen**: New cards (`queue = 0`)
-- **Suspended**: Cards with `queue < 0` (excluding unseen)
+- **Mature**: BOTH cards (ord=0 and ord=1) must be review/buried cards with `ivl >= 21` days
+- **Young**: At least one card is learning OR review/buried with `ivl < 21` days (and not mature)
+- **Unseen**: At least one card is new (`queue = 0`)
+- **Suspended**: At least one card has `queue < 0`
 
 Queue type constants are based on Anki's internal schema (see link referenced in `db.rs`).
+
+**Important**: Bible verse notes contain two cards:
+- Card 0 (ord=0): Front → Back (e.g., reference → verse text)
+- Card 1 (ord=1): Back → Front (e.g., verse text → reference)
+
+A note is only counted as mature when BOTH cards have been learned to maturity (ivl >= 21 days).
 
 ### Data Flow
 
@@ -130,11 +136,12 @@ Queue type constants are based on Anki's internal schema (see link referenced in
 
 ### Key Implementation Details
 
-- The tool only counts cards where `ord = 0` (first card in the note) to avoid double-counting
+- The tool joins both cards (ord=0 and ord=1) for each note to check maturity status
+- A note is only counted as mature if BOTH cards are mature (ivl >= 21 days)
 - Book matching uses `parse_book_name()` custom SQLite function to extract book names from the `sfld` field
 - Note: "Psalm" is singular in `bible.rs` constants to match typical reference format
 - The query optimization uses a single `GROUP BY` query instead of one query per book (66 queries → 1 query)
-- Both passage counts (number of cards) and verse counts (using `count_verses()` function) are tracked
+- Both passage counts (number of notes) and verse counts (using `count_verses()` function) are tracked
 - Verse counting handles ranges, verse suffixes (e.g., "4a"), and single-chapter books
 - Unicode formatting characters are stripped from references before parsing
 - The `tabled` crate provides formatted table output with rounded borders
