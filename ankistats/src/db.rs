@@ -9,12 +9,17 @@ use crate::verse_parser;
 
 // Anki queue type constants
 // See https://github.com/ankitects/anki/blob/76d3237139b3e73b98f5a5b4dfeeeea2f0554644/pylib/anki/consts.py#L22C1-L29
+#[allow(dead_code)]
 const QUEUE_TYPE_MANUALLY_BURIED: i64 = -3;
+#[allow(dead_code)]
 const QUEUE_TYPE_SIBLING_BURIED: i64 = -2;
 const QUEUE_TYPE_SUSPENDED: i64 = -1;
 const QUEUE_TYPE_NEW: i64 = 0;
+#[allow(dead_code)]
 const QUEUE_TYPE_LRN: i64 = 1;
+#[allow(dead_code)]
 const QUEUE_TYPE_REV: i64 = 2;
+#[allow(dead_code)]
 const QUEUE_TYPE_DAY_LEARN_RELEARN: i64 = 3;
 #[allow(dead_code)]
 const QUEUE_TYPE_PREVIEW: i64 = 4;

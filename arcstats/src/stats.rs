@@ -79,13 +79,12 @@ pub fn get_last_12_weeks_stats(export_path: &str) -> Result<Vec<WeekStats>> {
         }
 
         // Skip if no place or place name doesn't contain "church"
-        if let Some(place) = &item_with_place.place {
-            if place.name.to_lowercase().contains("church") {
+        if let Some(place) = &item_with_place.place
+            && place.name.to_lowercase().contains("church") {
                 let start = item_with_place.item.start_datetime();
                 let duration_minutes = item_with_place.item.duration_seconds() / 60.0;
                 church_visits.push((start, duration_minutes));
             }
-        }
     }
 
     // Group visits by week and sum minutes
