@@ -101,23 +101,36 @@ pub fn get_all_books_stats(
 ) -> Result<HashMap<String, BookStats>> {
     let query = format!(
         r#"
-        SELECT
-            parse_book_name(sfld) as book,
-            SUM(CASE WHEN queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl >= 21 THEN 1 ELSE 0 END) as mature_passages,
-            SUM(CASE WHEN queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR
-                              (queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl < 21) THEN 1 ELSE 0 END) as young_passages,
-            SUM(CASE WHEN queue={QUEUE_TYPE_NEW} THEN 1 ELSE 0 END) as unseen_passages,
-            SUM(CASE WHEN queue={QUEUE_TYPE_SUSPENDED} THEN 1 ELSE 0 END) as suspended_passages,
-            SUM(CASE WHEN queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl >= 21 THEN count_verses(sfld) ELSE 0 END) as mature_verses,
-            SUM(CASE WHEN queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR
-                              (queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl < 21) THEN count_verses(sfld) ELSE 0 END) as young_verses,
-            SUM(CASE WHEN queue={QUEUE_TYPE_NEW} THEN count_verses(sfld) ELSE 0 END) as unseen_verses,
-            SUM(CASE WHEN queue={QUEUE_TYPE_SUSPENDED} THEN count_verses(sfld) ELSE 0 END) as suspended_verses
-        FROM cards
-        JOIN notes ON notes.id = cards.nid
-        WHERE ord = 0 AND mid = ?1 AND did = ?2
+        SELECT 
+            book,
+            SUM(CASE WHEN type='mature' THEN 1 ELSE 0 END) AS mature_passages,
+            SUM(CASE WHEN type='young' THEN 1 ELSE 0 END) AS young_passages,
+            SUM(CASE WHEN type='unseen' THEN 1 ELSE 0 END) AS unseen_passages,
+            SUM(CASE WHEN type='suspended' THEN 1 ELSE 0 END) AS suspended_passages,
+            SUM(CASE WHEN type='mature' THEN verses_count ELSE 0 END) AS mature_verses,
+            SUM(CASE WHEN type='young' THEN verses_count ELSE 0 END) AS young_verses,
+            SUM(CASE WHEN type='unseen' THEN verses_count ELSE 0 END) AS unseen_verses,
+            SUM(CASE WHEN type='suspended' THEN verses_count ELSE 0 END) AS suspended_verses
+        FROM (
+            SELECT
+                parse_book_name(sfld) AS book,
+                count_verses(sfld) AS verses_count,
+                CASE
+                    WHEN c0.queue={QUEUE_TYPE_SUSPENDED} OR c1.queue={QUEUE_TYPE_SUSPENDED}
+                        THEN 'suspended'
+                    WHEN c0.queue={QUEUE_TYPE_NEW} AND c1.queue={QUEUE_TYPE_NEW}
+                        THEN 'unseen'
+                    WHEN c0.ivl >= 21 AND c1.ivl >= 21
+                        THEN 'mature'
+                    ELSE 'young'
+                    END as type
+            FROM notes
+            JOIN cards AS c0 ON c0.nid = notes.id AND c0.ord = 0 AND c0.did = ?2
+            JOIN cards AS c1 ON c1.nid = notes.id AND c1.ord = 1 AND c1.did = ?2
+            WHERE notes.mid = ?1
+        )
+        WHERE book IS NOT NULL
         GROUP BY book
-        HAVING book IS NOT NULL
         "#
     );
 
