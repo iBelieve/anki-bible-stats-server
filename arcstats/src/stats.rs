@@ -164,7 +164,11 @@ pub fn get_top_places_last_6_months(export_path: &str, limit: usize) -> Result<V
         .map(|(place_name, hours)| PlaceStats { place_name, hours })
         .collect();
 
-    place_stats.sort_by(|a, b| b.hours.partial_cmp(&a.hours).unwrap_or(std::cmp::Ordering::Equal));
+    place_stats.sort_by(|a, b| {
+        b.hours
+            .partial_cmp(&a.hours)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Take top N
     place_stats.truncate(limit);

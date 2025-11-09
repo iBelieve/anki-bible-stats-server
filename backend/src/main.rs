@@ -2,7 +2,7 @@ use ankistats::{
     get_bible_stats,
     models::{AggregateStats, BibleStats, BookStats, ErrorResponse, HealthCheck},
 };
-use arcstats::stats::{get_top_places_last_6_months, PlaceStats};
+use arcstats::stats::{PlaceStats, get_top_places_last_6_months};
 use axum::{
     Router,
     extract::Request,
