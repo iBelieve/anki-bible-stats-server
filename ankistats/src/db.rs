@@ -11,7 +11,6 @@ use crate::verse_parser;
 // See https://github.com/ankitects/anki/blob/76d3237139b3e73b98f5a5b4dfeeeea2f0554644/pylib/anki/consts.py#L22C1-L29
 const QUEUE_TYPE_MANUALLY_BURIED: i64 = -3;
 const QUEUE_TYPE_SIBLING_BURIED: i64 = -2;
-#[allow(dead_code)]
 const QUEUE_TYPE_SUSPENDED: i64 = -1;
 const QUEUE_TYPE_NEW: i64 = 0;
 const QUEUE_TYPE_LRN: i64 = 1;
@@ -108,12 +107,12 @@ pub fn get_all_books_stats(
             SUM(CASE WHEN queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR
                               (queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl < 21) THEN 1 ELSE 0 END) as young_passages,
             SUM(CASE WHEN queue={QUEUE_TYPE_NEW} THEN 1 ELSE 0 END) as unseen_passages,
-            SUM(CASE WHEN queue<{QUEUE_TYPE_NEW} THEN 1 ELSE 0 END) as suspended_passages,
+            SUM(CASE WHEN queue={QUEUE_TYPE_SUSPENDED} THEN 1 ELSE 0 END) as suspended_passages,
             SUM(CASE WHEN queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl >= 21 THEN count_verses(sfld) ELSE 0 END) as mature_verses,
             SUM(CASE WHEN queue IN ({QUEUE_TYPE_LRN},{QUEUE_TYPE_DAY_LEARN_RELEARN}) OR
                               (queue IN ({QUEUE_TYPE_REV},{QUEUE_TYPE_SIBLING_BURIED},{QUEUE_TYPE_MANUALLY_BURIED}) AND ivl < 21) THEN count_verses(sfld) ELSE 0 END) as young_verses,
             SUM(CASE WHEN queue={QUEUE_TYPE_NEW} THEN count_verses(sfld) ELSE 0 END) as unseen_verses,
-            SUM(CASE WHEN queue<{QUEUE_TYPE_NEW} THEN count_verses(sfld) ELSE 0 END) as suspended_verses
+            SUM(CASE WHEN queue={QUEUE_TYPE_SUSPENDED} THEN count_verses(sfld) ELSE 0 END) as suspended_verses
         FROM cards
         JOIN notes ON notes.id = cards.nid
         WHERE ord = 0 AND mid = ?1 AND did = ?2
