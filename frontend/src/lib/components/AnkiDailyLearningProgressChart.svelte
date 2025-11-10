@@ -41,20 +41,13 @@
 		return `${date.month}/${date.day}`;
 	};
 
-	// Calculate max absolute value for symmetric y-axis (left axis - matured/lost)
-	const maxAbsValue = $derived.by(() => {
+	// Calculate unified max value for both axes
+	const maxValue = $derived.by(() => {
 		const maturedValues = data.days.map((day) => day.anki_matured_passages);
 		const lostValues = data.days.map((day) => day.anki_lost_passages);
-		const allValues = [...maturedValues, ...lostValues];
-		const max = Math.max(...allValues);
-		// Add 10% padding and round up to nearest integer
-		return Math.ceil(max * 1.1);
-	});
-
-	// Calculate max absolute value for symmetric y1-axis (right axis - cumulative)
-	const maxAbsCumulative = $derived.by(() => {
 		const cumulativeValues = data.days.map((day) => day.anki_cumulative_passages);
-		const max = Math.max(...cumulativeValues.map(Math.abs));
+		const allValues = [...maturedValues, ...lostValues, ...cumulativeValues.map(Math.abs)];
+		const max = Math.max(...allValues);
 		// Add 10% padding and round up to nearest integer
 		return Math.ceil(max * 1.1);
 	});
@@ -142,8 +135,8 @@
 			y: {
 				stacked: true,
 				position: 'left' as const,
-				min: -maxAbsValue,
-				max: maxAbsValue,
+				min: -maxValue,
+				max: maxValue,
 				grid: {
 					color: chartColors.grid.gray
 				},
@@ -161,8 +154,8 @@
 			},
 			y1: {
 				position: 'right' as const,
-				min: -maxAbsCumulative,
-				max: maxAbsCumulative,
+				min: -maxValue,
+				max: maxValue,
 				grid: {
 					display: false
 				},
